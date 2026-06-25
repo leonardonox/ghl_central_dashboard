@@ -5,8 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.models.conversation import Conversation
 from app.core.security import encrypt_token
 from app.models.ghl_account import GHLAccount
+from app.models.lead import Lead
+from app.models.opportunity import Opportunity
 from app.repositories.account_repository import AccountRepository
 from app.schemas.account import AccountCreate, AccountOut, AccountUpdate
 
@@ -72,3 +75,17 @@ def deactivate_account(account_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(account)
     return account
+
+
+@router.delete('/{account_id}/permanent')
+def delete_account(account_id: int, db: Session = Depends(get_db)) -> dict[str, str]:
+    account = db.get(GHLAccount, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail='Revista nao encontrada')
+
+    db.query(Conversation).filter(Conversation.account_id == account_id).delete(synchronize_session=False)
+    db.query(Opportunity).filter(Opportunity.account_id == account_id).delete(synchronize_session=False)
+    db.query(Lead).filter(Lead.account_id == account_id).delete(synchronize_session=False)
+    db.delete(account)
+    db.commit()
+    return {'status': 'deleted'}

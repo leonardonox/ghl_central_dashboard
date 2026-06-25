@@ -733,9 +733,12 @@ th {
 .config-form,
 .config-row {
   display: grid;
-  grid-template-columns: 1.1fr 1.2fr 1.3fr auto auto auto;
-  gap: 10px;
-  align-items: center;
+  gap: 12px;
+  align-items: end;
+}
+
+.config-form {
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.15fr) minmax(260px, 1.2fr) auto;
 }
 
 .config-list {
@@ -744,10 +747,31 @@ th {
 }
 
 .config-row {
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.1fr) minmax(240px, 1.15fr) auto minmax(260px, auto);
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fbfdff;
+}
+
+.config-form label,
+.config-row label:not(.config-active) {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.config-form label span,
+.config-row label span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.config-form input,
+.config-row input {
+  width: 100%;
 }
 
 .config-active {
@@ -762,6 +786,18 @@ th {
 
 .config-active input {
   min-height: auto;
+}
+
+.config-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.danger {
+  color: #9f1d16;
+  border: 1px solid #f1b8b3;
+  background: #fff4f2;
 }
 
 .heatmap {
@@ -837,6 +873,12 @@ th {
   .config-form,
   .config-row {
     grid-template-columns: 1fr;
+  }
+  .config-actions {
+    justify-content: stretch;
+  }
+  .config-actions button {
+    flex: 1;
   }
   .compare-selectors {
     grid-template-columns: 1fr;

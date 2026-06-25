@@ -590,9 +590,9 @@ async function renderConfig() {
     <div class="card config-card">
       <h3>Adicionar revista</h3>
       <div class="config-form">
-        <input id="new-account-name" placeholder="Nome da revista" autocomplete="off" />
-        <input id="new-account-location" placeholder="Location ID" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" />
-        <input id="new-account-token" placeholder="Token PIT" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" />
+        <label><span>Revista</span><input id="new-account-name" placeholder="Nome da revista" autocomplete="off" /></label>
+        <label><span>Location ID</span><input id="new-account-location" placeholder="ID ou URL da location" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" /></label>
+        <label><span>Token PIT</span><input id="new-account-token" placeholder="Token da integração privada" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" /></label>
         <button id="create-account">Adicionar</button>
       </div>
     </div>
@@ -602,12 +602,15 @@ async function renderConfig() {
       <div class="config-list">
         ${accounts.map((account) => `
           <div class="config-row" data-account-id="${account.id}">
-            <input class="config-name" value="${account.name}" autocomplete="off" />
-            <input class="config-location" placeholder="Location ID salvo, preencha para trocar" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" />
-            <input class="config-token" placeholder="Token salvo, preencha para trocar" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" />
+            <label><span>Revista</span><input class="config-name" value="${account.name}" autocomplete="off" /></label>
+            <label><span>Location</span><input class="config-location" placeholder="Salvo, preencha para trocar" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" /></label>
+            <label><span>Token</span><input class="config-token" placeholder="Salvo, preencha para trocar" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" /></label>
             <label class="config-active"><input class="config-active-input" type="checkbox" ${account.active ? 'checked' : ''} /> Ativa</label>
-            <button class="save-account">Salvar</button>
-            <button class="deactivate-account secondary">Desativar</button>
+            <div class="config-actions">
+              <button class="save-account">Salvar</button>
+              <button class="deactivate-account secondary">Desativar</button>
+              <button class="delete-account danger" type="button">Excluir</button>
+            </div>
           </div>
         `).join('')}
       </div>
@@ -661,6 +664,16 @@ async function renderConfig() {
     button.addEventListener('click', async () => {
       const row = button.closest('.config-row');
       await api(`/accounts/${row.dataset.accountId}`, { method: 'DELETE' });
+      await refreshAccounts();
+    });
+  });
+
+  document.querySelectorAll('.delete-account').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const row = button.closest('.config-row');
+      const name = row.querySelector('.config-name').value;
+      if (!window.confirm(`Excluir definitivamente ${name}?`)) return;
+      await api(`/accounts/${row.dataset.accountId}/permanent`, { method: 'DELETE' });
       await refreshAccounts();
     });
   });
