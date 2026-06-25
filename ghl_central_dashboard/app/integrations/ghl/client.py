@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import json
 from typing import Any
 
 import httpx
@@ -17,7 +18,7 @@ class GHLClientError(Exception):
 class GHLClient:
     def __init__(self, token: str) -> None:
         settings = get_settings()
-        self.token = token
+        self.token = token.strip()
         self.base_url = settings.ghl_base_url.rstrip('/')
         self.api_version = settings.ghl_api_version
 
@@ -38,7 +39,20 @@ class GHLClient:
             return response.json()
         except httpx.HTTPStatusError as exc:
             logger.exception('Erro HTTP GHL: %s', exc.response.text)
-            raise GHLClientError(exc.response.text) from exc
+            raise GHLClientError(self._format_error(exc.response)) from exc
         except httpx.RequestError as exc:
             logger.exception('Erro de conexão com GHL')
             raise GHLClientError('Falha de conexão com GHL') from exc
+
+    def _format_error(self, response: httpx.Response) -> str:
+        try:
+            payload = response.json()
+        except json.JSONDecodeError:
+            payload = {}
+
+        message = payload.get('message') or response.text
+        if response.status_code == 401:
+            return 'Token GHL invalido ou expirado.'
+        if response.status_code == 403 and 'does not have access to this location' in message:
+            return 'Token GHL nao tem acesso a este Location ID. Libere esta subconta no Private Integration ou use o token correto da location.'
+        return f'GHL retornou {response.status_code}: {message}'
