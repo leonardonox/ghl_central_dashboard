@@ -615,13 +615,12 @@ async function renderConfig() {
 
   $('redeploy-render').addEventListener('click', async () => {
     try {
-      showStatus('Solicitando redeploy no Render...');
+      $('redeploy-hint').textContent = 'Solicitando redeploy no Render...';
       await api('/deploy/render', { method: 'POST' });
       $('redeploy-hint').textContent = 'Redeploy solicitado. Quando o Render ficar Live, clique em Atualizar pagina.';
       $('refresh-page').disabled = false;
-      showStatus('Redeploy solicitado. Aguarde alguns minutos e atualize a pagina.');
     } catch (error) {
-      showStatus(`Erro ao solicitar redeploy: ${error.message}`);
+      $('redeploy-hint').textContent = `Erro ao solicitar redeploy: ${error.message}`;
     }
   });
 

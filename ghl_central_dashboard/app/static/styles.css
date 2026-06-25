@@ -1626,3 +1626,85 @@ tbody tr:hover {
     top: 0;
   }
 }
+
+/* Standard dashboard sizing refinements */
+.filters,
+.tabs,
+.tab-panel,
+.status {
+  width: min(1240px, calc(100% - 32px));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.topbar {
+  min-height: 96px;
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.topbar h1 {
+  font-size: 22px;
+}
+
+.filters {
+  gap: 12px;
+  padding: 14px;
+}
+
+.filter-grid {
+  grid-template-columns: minmax(320px, 1.5fr) minmax(240px, 1fr) minmax(240px, 1fr);
+}
+
+.filter-card {
+  min-height: auto;
+}
+
+.tabs {
+  margin-top: 12px;
+}
+
+.tab-panel {
+  padding: 12px 0 22px;
+}
+
+.section-title {
+  margin: 12px 0;
+  padding: 8px 12px;
+}
+
+.status {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.config-card {
+  padding: 14px 16px;
+}
+
+.deploy-card {
+  gap: 8px;
+}
+
+.deploy-actions {
+  gap: 10px 12px;
+  margin-top: 2px;
+}
+
+.deploy-hint {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+@media (max-width: 900px) {
+  .filters,
+  .tabs,
+  .tab-panel,
+  .status {
+    width: min(100% - 20px, 1240px);
+  }
+
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+}
