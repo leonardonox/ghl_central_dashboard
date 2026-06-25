@@ -730,9 +730,24 @@ $('clear-filters').addEventListener('click', () => {
 });
 
 $('sync-btn').addEventListener('click', async () => {
-  showStatus('Sincronizando dados do GHL...');
-  await api('/sync/run?days_back=30', { method: 'POST' });
-  await loadDashboard();
+  try {
+    showStatus('Sincronizando dados do GHL...');
+    const result = await api('/sync/run?days_back=365', { method: 'POST' });
+    if (result.errors?.length) {
+      const errors = result.errors.map((item) => `${item.account || 'GHL'}: ${item.error}`).join(' | ');
+      showStatus(`Sincronizacao concluida com erros. ${errors}`);
+      return;
+    }
+    showStatus(
+      `Sincronizado: ${result.accounts} revistas, `
+      + `${result.leads_inserted_or_updated} leads, `
+      + `${result.opportunities_inserted_or_updated} oportunidades, `
+      + `${result.conversations_inserted_or_updated} conversas.`
+    );
+    await loadDashboard();
+  } catch (error) {
+    showStatus(`Erro ao sincronizar GHL: ${error.message}`);
+  }
 });
 
 $('pdf-btn').addEventListener('click', () => {
