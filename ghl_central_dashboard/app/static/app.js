@@ -580,7 +580,11 @@ async function renderConfig() {
     <div class="card config-card deploy-card">
       <h3>Deploy do painel</h3>
       <p>Use quando quiser publicar a versao mais recente do GitHub no Render.</p>
-      <button id="redeploy-render" type="button">Redeploy Render</button>
+      <div class="deploy-actions">
+        <button id="redeploy-render" type="button">Redeploy Render</button>
+        <span id="redeploy-hint" class="deploy-hint">Apos ficar Live no Render, atualize esta pagina.</span>
+        <button id="refresh-page" class="secondary" type="button">Atualizar pagina</button>
+      </div>
     </div>
     <br>
     <div class="card config-card">
@@ -613,10 +617,16 @@ async function renderConfig() {
     try {
       showStatus('Solicitando redeploy no Render...');
       await api('/deploy/render', { method: 'POST' });
+      $('redeploy-hint').textContent = 'Redeploy solicitado. Quando o Render ficar Live, clique em Atualizar pagina.';
+      $('refresh-page').disabled = false;
       showStatus('Redeploy solicitado. Aguarde alguns minutos e atualize a pagina.');
     } catch (error) {
       showStatus(`Erro ao solicitar redeploy: ${error.message}`);
     }
+  });
+
+  $('refresh-page').addEventListener('click', () => {
+    window.location.reload();
   });
 
   $('create-account').addEventListener('click', async () => {
