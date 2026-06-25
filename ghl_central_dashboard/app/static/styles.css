@@ -1161,7 +1161,7 @@ select:focus {
 }
 
 .kpi-grid {
-  grid-template-columns: repeat(7, minmax(150px, 1fr));
+  grid-template-columns: repeat(7, minmax(170px, 1fr));
 }
 
 .card,
@@ -1674,7 +1674,7 @@ tbody tr:hover {
 .tabs,
 .tab-panel,
 .status {
-  width: min(1240px, calc(100% - 32px));
+  width: min(1480px, calc(100% - 40px));
   margin-left: auto;
   margin-right: auto;
 }
@@ -1695,7 +1695,7 @@ tbody tr:hover {
 }
 
 .filter-grid {
-  grid-template-columns: minmax(320px, 1.5fr) minmax(240px, 1fr) minmax(240px, 1fr);
+  grid-template-columns: minmax(420px, 1.35fr) minmax(300px, 1fr) minmax(300px, 1fr);
 }
 
 .filter-card {
@@ -1743,7 +1743,7 @@ tbody tr:hover {
   .tabs,
   .tab-panel,
   .status {
-    width: min(100% - 20px, 1240px);
+    width: min(100% - 20px, 1480px);
   }
 
   .filter-grid {
