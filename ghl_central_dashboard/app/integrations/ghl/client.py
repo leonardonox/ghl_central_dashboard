@@ -1,0 +1,44 @@
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+import httpx
+
+from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+
+class GHLClientError(Exception):
+    pass
+
+
+class GHLClient:
+    def __init__(self, token: str) -> None:
+        settings = get_settings()
+        self.token = token
+        self.base_url = settings.ghl_base_url.rstrip('/')
+        self.api_version = settings.ghl_api_version
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            'Authorization': f'Bearer {self.token}',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Version': self.api_version,
+        }
+
+    async def get(self, endpoint: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        try:
+            async with httpx.AsyncClient(timeout=40) as client:
+                response = await client.get(url, headers=self._headers(), params=params)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as exc:
+            logger.exception('Erro HTTP GHL: %s', exc.response.text)
+            raise GHLClientError(exc.response.text) from exc
+        except httpx.RequestError as exc:
+            logger.exception('Erro de conexão com GHL')
+            raise GHLClientError('Falha de conexão com GHL') from exc

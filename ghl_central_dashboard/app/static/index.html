@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard Revistas</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main id="app-view" class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>Dashboard Comparativo de Revistas — 2026</h1>
+          <p id="period-label">Leads, atendimentos, canais, vendas e comparativos</p>
+        </div>
+        <div class="top-actions">
+          <span id="last-sync" class="sync-label">Atualizando...</span>
+          <button id="pdf-btn" class="ghost">Gerar PDF</button>
+          <button id="sync-btn" class="ghost">Atualizar GHL</button>
+        </div>
+      </header>
+
+      <section class="filters">
+        <div class="filter-header">
+          <div>
+            <strong>Filtros do painel</strong>
+            <span>Escolha o período, compare meses e filtre as revistas que quer analisar.</span>
+          </div>
+          <button id="clear-filters" class="secondary" type="button">Selecionar todas</button>
+        </div>
+
+        <div class="filter-grid">
+          <div class="filter-card">
+            <div class="filter-card-title">Como comparar</div>
+            <div class="segmented" id="mode-segment">
+              <button type="button" data-value="Periodo unico" class="active">Período único</button>
+              <button type="button" data-value="Comparar meses">Comparar meses</button>
+            </div>
+            <select id="mode" class="visually-hidden">
+              <option>Periodo unico</option>
+              <option>Comparar meses</option>
+            </select>
+          </div>
+
+          <div class="filter-card" id="quick-card">
+            <div class="filter-card-title">Período rápido</div>
+            <div class="quick-buttons" id="quick-buttons">
+              <button type="button" data-value="Hoje">Hoje</button>
+              <button type="button" data-value="Semana" class="active">Semana</button>
+              <button type="button" data-value="Mes">Mês atual</button>
+              <button type="button" data-value="Mes especifico">Mês específico</button>
+              <button type="button" data-value="Personalizado">Personalizado</button>
+            </div>
+            <select id="quick" class="visually-hidden">
+              <option>Semana</option>
+              <option>Mes</option>
+              <option>Hoje</option>
+              <option>Mes especifico</option>
+              <option>Personalizado</option>
+            </select>
+            <label class="week-selector" id="week-selector">
+              <span>Semana fechada</span>
+              <select id="week-select"></select>
+            </label>
+          </div>
+
+          <div class="filter-card months-card">
+            <div class="filter-card-title">Meses da comparação</div>
+            <div class="months-row">
+              <label>
+                <span>Mês A</span>
+                <select id="month-a"></select>
+              </label>
+              <span class="vs-pill">VS</span>
+              <label>
+                <span>Mês B</span>
+                <select id="month-b"></select>
+              </label>
+            </div>
+          </div>
+
+          <div class="filter-card date-card">
+            <div class="filter-card-title">Intervalo personalizado</div>
+            <div class="date-row">
+              <label>
+                <span>Início</span>
+                <input id="start-date" type="date" />
+              </label>
+              <label>
+                <span>Fim</span>
+                <input id="end-date" type="date" />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="magazine-filter">
+          <div class="magazine-title">
+            <strong>Revistas selecionadas</strong>
+            <span id="selected-count"></span>
+          </div>
+          <div id="account-chips" class="chips"></div>
+        </div>
+      </section>
+
+      <nav class="tabs">
+        <button class="active" data-tab="resumo">Resumo</button>
+        <button data-tab="dia">Por dia</button>
+        <button data-tab="revista">Por revista</button>
+        <button data-tab="comparar">Comparar 2 revistas</button>
+        <button data-tab="canais">Canais</button>
+        <button data-tab="individual">Individual</button>
+        <button data-tab="alertas">Alertas</button>
+        <button data-tab="configuracoes">Configurações</button>
+      </nav>
+
+      <section id="status" class="status hidden"></section>
+
+      <section id="resumo" class="tab-panel"></section>
+      <section id="dia" class="tab-panel hidden"></section>
+      <section id="revista" class="tab-panel hidden"></section>
+      <section id="comparar" class="tab-panel hidden"></section>
+      <section id="canais" class="tab-panel hidden"></section>
+      <section id="individual" class="tab-panel hidden"></section>
+      <section id="alertas" class="tab-panel hidden"></section>
+      <section id="configuracoes" class="tab-panel hidden"></section>
+    </main>
+
+    <script src="/static/app.js?v=20260625-2"></script>
+  </body>
+</html>
