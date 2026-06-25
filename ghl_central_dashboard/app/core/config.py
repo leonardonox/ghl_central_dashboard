@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     token_encryption_key: str
     ghl_base_url: str = 'https://services.leadconnectorhq.com'
     ghl_api_version: str = '2021-07-28'
-    sync_interval_minutes: int = 60
+    sync_interval_minutes: int = 5
     dashboard_username: str = 'admin'
     dashboard_password: str = 'admin123'
 

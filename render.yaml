@@ -8,3 +8,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: SYNC_INTERVAL_MINUTES
+        value: 5
