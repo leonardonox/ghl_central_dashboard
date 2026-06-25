@@ -711,6 +711,7 @@ async function initApp() {
   state.accounts = await api('/accounts');
   state.selectedAccounts = new Set(state.accounts.map((account) => account.name));
   renderChips();
+  await renderConfig();
   await loadDashboard();
 }
 
