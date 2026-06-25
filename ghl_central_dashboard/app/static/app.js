@@ -577,6 +577,12 @@ function renderAlerts() {
 async function renderConfig() {
   const accounts = await api('/accounts/all');
   $('configuracoes').innerHTML = `${section('Configurações das revistas')}
+    <div class="card config-card deploy-card">
+      <h3>Deploy do painel</h3>
+      <p>Use quando quiser publicar a versao mais recente do GitHub no Render.</p>
+      <button id="redeploy-render" type="button">Redeploy Render</button>
+    </div>
+    <br>
     <div class="card config-card">
       <h3>Adicionar revista</h3>
       <div class="config-form">
@@ -602,6 +608,16 @@ async function renderConfig() {
         `).join('')}
       </div>
     </div>`;
+
+  $('redeploy-render').addEventListener('click', async () => {
+    try {
+      showStatus('Solicitando redeploy no Render...');
+      await api('/deploy/render', { method: 'POST' });
+      showStatus('Redeploy solicitado. Aguarde alguns minutos e atualize a pagina.');
+    } catch (error) {
+      showStatus(`Erro ao solicitar redeploy: ${error.message}`);
+    }
+  });
 
   $('create-account').addEventListener('click', async () => {
     await api('/accounts', {

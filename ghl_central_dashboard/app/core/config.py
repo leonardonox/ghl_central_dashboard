@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     sync_interval_minutes: int = 5
     dashboard_username: str = 'admin'
     dashboard_password: str = 'admin123'
+    render_deploy_hook_url: str | None = None
 
 
 @lru_cache

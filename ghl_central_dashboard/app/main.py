@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from app.api.routes import accounts, auth, dashboard, sync
+from app.api.routes import accounts, auth, dashboard, deploy, sync
 from app.core.config import get_settings
 from app.core.database import Base, SessionLocal, engine
 from app.core.logging import configure_logging
@@ -25,6 +25,7 @@ app.mount('/static', StaticFiles(directory=static_dir), name='static')
 app.include_router(auth.router)
 app.include_router(accounts.router)
 app.include_router(dashboard.router)
+app.include_router(deploy.router)
 app.include_router(sync.router)
 
 
