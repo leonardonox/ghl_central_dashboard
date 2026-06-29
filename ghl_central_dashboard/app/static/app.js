@@ -574,6 +574,13 @@ function renderAlerts() {
     + (alerts.length ? `<div class="alert-list">${alerts.map((alert) => `<div class="alert"><strong>${alert.account}</strong><br>${alert.message}</div>`).join('')}</div>` : '<div class="diagnosis">Nenhum alerta encontrado.</div>');
 }
 
+function renderEditorialSupport() {
+  $('suporte-editorial').innerHTML = `${section('Suporte editorial')}
+    <div class="card config-card">
+      <h3>Suporte editorial</h3>
+    </div>`;
+}
+
 async function renderConfig() {
   const accounts = await api('/accounts/all');
   $('configuracoes').innerHTML = `${section('Configurações das revistas')}
@@ -697,6 +704,7 @@ function render() {
   renderChannels();
   renderIndividual();
   renderAlerts();
+  renderEditorialSupport();
   renderConfig();
 }
 
