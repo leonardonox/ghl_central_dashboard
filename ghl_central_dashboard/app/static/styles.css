@@ -1329,57 +1329,74 @@ tbody tr:hover {
 
 .support-board {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, max-content));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
   align-items: start;
 }
 
 .support-column {
-  width: fit-content;
-  min-width: 260px;
-  max-width: 420px;
-  overflow: visible;
-  border: 1px solid #d8e8e2;
-  border-radius: 2px;
-  background: #fbfffd;
-  box-shadow: var(--shadow-sm);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #cfe4dc;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgba(5, 47, 42, .07);
 }
 
 .support-column header {
-  display: block;
-  padding: 4px 6px 0;
-  border-bottom: 0;
-  background: transparent;
-  line-height: 1.25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #d8e8e2;
+  background: linear-gradient(180deg, #f8fcfa, #eef8f4);
 }
 
 .support-column header strong {
-  display: inline;
+  display: block;
   color: #063a31;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 900;
+  line-height: 1.2;
 }
 
 .support-column header span {
-  display: inline;
-  color: #052f2a;
-  font-size: 14px;
-  font-weight: 400;
+  display: block;
+  margin-top: 3px;
+  color: #52655f;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.support-column header em {
+  display: grid;
+  place-items: center;
+  min-width: 38px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #075e4a;
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 900;
 }
 
 .support-cards {
   display: grid;
-  gap: 0;
-  padding: 0 6px 6px;
+  gap: 8px;
+  padding: 10px;
 }
 
 .support-card {
   display: grid;
-  gap: 1px;
-  padding: 1px 0 2px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  gap: 5px;
+  padding: 10px 11px;
+  border: 1px solid #e1eee9;
+  border-radius: 7px;
+  background: #fbfffd;
 }
 
 .support-error {
@@ -1393,17 +1410,17 @@ tbody tr:hover {
 
 .support-person strong {
   color: #052f2a;
-  font-size: 14px;
-  line-height: 1.2;
+  font-size: 15px;
+  line-height: 1.25;
 }
 
 .support-line,
 .support-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  color: #052f2a;
-  font-size: 14px;
+  gap: 6px;
+  color: #52655f;
+  font-size: 13px;
   line-height: 1.25;
 }
 
@@ -1413,12 +1430,14 @@ tbody tr:hover {
   overflow: hidden;
   padding: 0;
   border-radius: 0;
-  color: inherit;
-  background: transparent;
+  color: #52655f;
+  background: #eef7f3;
   font-size: inherit;
-  font-weight: 400;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 3px 6px;
+  border-radius: 6px;
 }
 
 @media (max-width: 1400px) {

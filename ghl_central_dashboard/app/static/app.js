@@ -611,8 +611,11 @@ async function renderEditorialSupport() {
         ${groups.map((group) => `
           <article class="support-column">
             <header>
-              <strong>${escapeHtml(group.account)}</strong>
-              <span>${group.count} oportunidades</span>
+              <div>
+                <strong>${escapeHtml(group.account)}</strong>
+                <span>Suporte editorial</span>
+              </div>
+              <em>${group.count}</em>
             </header>
             <div class="support-cards">
               ${group.error ? `<div class="support-card support-error">
