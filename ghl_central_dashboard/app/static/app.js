@@ -606,13 +606,7 @@ async function renderEditorialSupport() {
       return;
     }
 
-    const total = groups.reduce((sum, group) => sum + Number(group.count || 0), 0);
-    const totalValue = groups.reduce((sum, group) => sum + Number(group.total_value || 0), 0);
     container.innerHTML = `${section('Suporte editorial')}
-      <div class="support-summary">
-        <article class="card kpi green"><span>Pessoas no suporte</span><strong>${total}</strong><small>em ${groups.length} revistas</small></article>
-        <article class="card kpi orange"><span>Valor em aberto</span><strong>${money(totalValue)}</strong><small>soma das oportunidades</small></article>
-      </div>
       <div class="support-board">
         ${groups.map((group) => `
           <article class="support-column">
@@ -631,11 +625,10 @@ async function renderEditorialSupport() {
                 <div class="support-card">
                   <div class="support-person">
                     <strong>${escapeHtml(item.name)}</strong>
-                    <span>${money(item.value)}</span>
                   </div>
-                  <div class="support-meta">
+                  <div class="support-line">
                     ${item.phone ? `<span>${escapeHtml(item.phone)}</span>` : ''}
-                    ${item.email ? `<span>${escapeHtml(item.email)}</span>` : ''}
+                    ${!item.phone && item.email ? `<span>${escapeHtml(item.email)}</span>` : ''}
                     ${item.stage ? `<span>${escapeHtml(item.stage)}</span>` : ''}
                   </div>
                 </div>
