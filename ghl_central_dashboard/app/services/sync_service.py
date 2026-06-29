@@ -1,4 +1,5 @@
 import unicodedata
+import logging
 from datetime import datetime, timedelta
 
 from sqlalchemy.dialects.postgresql import insert
@@ -11,6 +12,8 @@ from app.models.conversation import Conversation
 from app.models.lead import Lead
 from app.models.opportunity import Opportunity
 from app.repositories.account_repository import AccountRepository
+
+logger = logging.getLogger(__name__)
 
 
 class GHLSyncService:
@@ -45,7 +48,8 @@ class GHLSyncService:
                 account_result['leads'] = self._upsert_leads(account.id, leads)
                 result['leads_inserted_or_updated'] += account_result['leads']
 
-                opportunities = await self._fetch_opportunities(client, account.location_id, start_date)
+                pipeline_stages = await self._fetch_pipeline_stages(client, account.location_id)
+                opportunities = await self._fetch_opportunities(client, account.location_id, start_date, pipeline_stages)
                 account_result['opportunities'] = self._upsert_opportunities(account.id, opportunities)
                 result['opportunities_inserted_or_updated'] += account_result['opportunities']
 
@@ -93,9 +97,38 @@ class GHLSyncService:
 
         return contacts
 
-    async def _fetch_opportunities(self, client: GHLClient, location_id: str, start_date: datetime) -> list[dict]:
+    async def _fetch_pipeline_stages(self, client: GHLClient, location_id: str) -> dict[str, dict[str, str | None]]:
+        try:
+            data = await client.get('/opportunities/pipelines', params={'locationId': location_id})
+        except Exception:
+            logger.exception('Falha ao buscar pipelines do GHL')
+            return {}
+
+        stage_lookup: dict[str, dict[str, str | None]] = {}
+        for pipeline in data.get('pipelines') or []:
+            pipeline_id = pipeline.get('id') or pipeline.get('_id')
+            pipeline_name = pipeline.get('name')
+            for stage in pipeline.get('stages') or []:
+                stage_id = stage.get('id') or stage.get('_id') or stage.get('stageId')
+                if not stage_id:
+                    continue
+                stage_lookup[str(stage_id)] = {
+                    'pipeline_id': pipeline_id,
+                    'pipeline_name': pipeline_name,
+                    'stage_name': stage.get('name'),
+                }
+        return stage_lookup
+
+    async def _fetch_opportunities(
+        self,
+        client: GHLClient,
+        location_id: str,
+        start_date: datetime,
+        pipeline_stages: dict[str, dict[str, str | None]] | None = None,
+    ) -> list[dict]:
         opportunities: list[dict] = []
         params = {'location_id': location_id, 'limit': 100}
+        pipeline_stages = pipeline_stages or {}
 
         while True:
             data = await client.get('/opportunities/search', params=params)
@@ -103,6 +136,13 @@ class GHLSyncService:
             for item in page_opportunities:
                 created_at = self._parse_date(item.get('createdAt') or item.get('dateAdded'))
                 if created_at >= start_date:
+                    stage_data = pipeline_stages.get(str(item.get('pipelineStageId') or ''))
+                    if stage_data:
+                        item = {
+                            **item,
+                            '_pipelineName': stage_data.get('pipeline_name'),
+                            '_pipelineStageName': stage_data.get('stage_name'),
+                        }
                     opportunities.append(item)
 
             if not page_opportunities:

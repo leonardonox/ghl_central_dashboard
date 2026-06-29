@@ -1306,6 +1306,130 @@ tbody tr:hover {
   background: #ffffff;
 }
 
+.support-loading,
+.empty-state {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid #d8e8e2;
+  border-radius: 8px;
+  color: #52655f;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.empty-state strong {
+  color: #063a31;
+}
+
+.error-state {
+  border-color: #f2b8b5;
+  background: #fff7f6;
+}
+
+.support-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.support-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.support-column {
+  overflow: hidden;
+  border: 1px solid #d8e8e2;
+  border-radius: 8px;
+  background: #f8fcfa;
+  box-shadow: var(--shadow-sm);
+}
+
+.support-column header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #d8e8e2;
+  background: #ffffff;
+}
+
+.support-column header strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #063a31;
+  font-size: 15px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-column header span {
+  flex: 0 0 auto;
+  color: #075e4a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.support-cards {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.support-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dbe8e2;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.support-person {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.support-person strong {
+  color: #052f2a;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.support-person span {
+  flex: 0 0 auto;
+  color: #075e4a;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.support-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.support-meta span {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 4px 7px;
+  border-radius: 6px;
+  color: #52655f;
+  background: #eef7f3;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 1400px) {
   .kpi-grid {
     grid-template-columns: repeat(4, minmax(160px, 1fr));
@@ -1330,7 +1454,8 @@ tbody tr:hover {
   .kpi-grid,
   .highlight-grid,
   .grid-2,
-  .filter-grid {
+  .filter-grid,
+  .support-summary {
     grid-template-columns: 1fr;
   }
 

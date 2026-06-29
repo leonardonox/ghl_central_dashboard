@@ -133,6 +133,16 @@ async function api(path, options = {}) {
   return response.json();
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
+}
+
 function showStatus(message) {
   const status = $('status');
   status.textContent = message;
@@ -204,6 +214,10 @@ function sum(rows, key) {
 
 function pct(value) {
   return `${Number(value || 0).toFixed(2)}%`;
+}
+
+function money(value) {
+  return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 function formatDateTime(value) {
@@ -574,11 +588,63 @@ function renderAlerts() {
     + (alerts.length ? `<div class="alert-list">${alerts.map((alert) => `<div class="alert"><strong>${alert.account}</strong><br>${alert.message}</div>`).join('')}</div>` : '<div class="diagnosis">Nenhum alerta encontrado.</div>');
 }
 
-function renderEditorialSupport() {
-  $('suporte-editorial').innerHTML = `${section('Suporte editorial')}
-    <div class="card config-card">
-      <h3>Suporte editorial</h3>
-    </div>`;
+async function renderEditorialSupport() {
+  const container = $('suporte-editorial');
+  container.innerHTML = `${section('Suporte editorial')}<div class="support-loading">Carregando suporte editorial...</div>`;
+
+  try {
+    const data = await api('/dashboard/editorial-support');
+    const selected = new Set(selectedNames());
+    const groups = (data.groups || []).filter((group) => selected.has(group.account));
+
+    if (!groups.length) {
+      container.innerHTML = `${section('Suporte editorial')}
+        <div class="empty-state">
+          <strong>Nenhuma oportunidade encontrada em Suporte editorial.</strong>
+          <span>Atualize o GHL para sincronizar as etapas mais recentes do funil.</span>
+        </div>`;
+      return;
+    }
+
+    const total = groups.reduce((sum, group) => sum + Number(group.count || 0), 0);
+    const totalValue = groups.reduce((sum, group) => sum + Number(group.total_value || 0), 0);
+    container.innerHTML = `${section('Suporte editorial')}
+      <div class="support-summary">
+        <article class="card kpi green"><span>Pessoas no suporte</span><strong>${total}</strong><small>em ${groups.length} revistas</small></article>
+        <article class="card kpi orange"><span>Valor em aberto</span><strong>${money(totalValue)}</strong><small>soma das oportunidades</small></article>
+      </div>
+      <div class="support-board">
+        ${groups.map((group) => `
+          <article class="support-column">
+            <header>
+              <strong>${escapeHtml(group.account)}</strong>
+              <span>${group.count} oportunidades</span>
+            </header>
+            <div class="support-cards">
+              ${group.items.map((item) => `
+                <div class="support-card">
+                  <div class="support-person">
+                    <strong>${escapeHtml(item.name)}</strong>
+                    <span>${money(item.value)}</span>
+                  </div>
+                  <div class="support-meta">
+                    ${item.phone ? `<span>${escapeHtml(item.phone)}</span>` : ''}
+                    ${item.email ? `<span>${escapeHtml(item.email)}</span>` : ''}
+                    ${item.stage ? `<span>${escapeHtml(item.stage)}</span>` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </article>
+        `).join('')}
+      </div>`;
+  } catch (error) {
+    container.innerHTML = `${section('Suporte editorial')}
+      <div class="empty-state error-state">
+        <strong>Erro ao carregar suporte editorial.</strong>
+        <span>${escapeHtml(error.message)}</span>
+      </div>`;
+  }
 }
 
 async function renderConfig() {
