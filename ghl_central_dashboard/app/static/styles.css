@@ -1391,6 +1391,11 @@ tbody tr:hover {
   background: #ffffff;
 }
 
+.support-error {
+  border-color: #f2b8b5;
+  background: #fff7f6;
+}
+
 .support-person {
   display: flex;
   align-items: flex-start;

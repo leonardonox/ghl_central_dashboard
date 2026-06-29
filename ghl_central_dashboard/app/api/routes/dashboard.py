@@ -1,14 +1,14 @@
+import asyncio
 from datetime import date, timedelta
-from decimal import Decimal
 import json
 import unicodedata
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import decrypt_token
+from app.integrations.ghl.client import GHLClient
 from app.models.ghl_account import GHLAccount
-from app.models.opportunity import Opportunity
 from app.services.metrics_service import MetricsService
 
 router = APIRouter(prefix='/dashboard', tags=['dashboard'])
@@ -84,8 +84,108 @@ def _contact_field(raw_data: dict | None, field: str) -> str | None:
     return raw.get(field) or contact.get(field)
 
 
-def _decimal_to_float(value: Decimal | None) -> float:
-    return float(value or 0)
+def _money_value(raw_data: dict | None) -> float:
+    raw = _raw_dict(raw_data)
+    try:
+        return float(raw.get('monetaryValue') or raw.get('value') or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _stage_infos(payload: dict) -> list[dict[str, str | None]]:
+    infos = []
+    for pipeline in payload.get('pipelines') or []:
+        pipeline_id = pipeline.get('id') or pipeline.get('_id')
+        pipeline_name = pipeline.get('name')
+        for stage in pipeline.get('stages') or []:
+            stage_name = stage.get('name')
+            if EDITORIAL_STAGE not in _clean_text(stage_name):
+                continue
+            stage_id = stage.get('id') or stage.get('_id') or stage.get('stageId')
+            if stage_id:
+                infos.append({
+                    'pipeline_id': pipeline_id,
+                    'pipeline_name': pipeline_name,
+                    'stage_id': str(stage_id),
+                    'stage_name': stage_name,
+                })
+    return infos
+
+
+async def _fetch_stage_opportunities(client: GHLClient, location_id: str, stage_info: dict[str, str | None]) -> list[dict]:
+    params = {
+        'location_id': location_id,
+        'pipeline_stage_id': stage_info['stage_id'],
+        'limit': 100,
+    }
+    if stage_info.get('pipeline_id'):
+        params['pipeline_id'] = stage_info['pipeline_id']
+
+    opportunities = []
+    page_count = 0
+    while page_count < 20:
+        page_count += 1
+        data = await client.get('/opportunities/search', params=params)
+        page_opportunities = data.get('opportunities') or []
+        if not page_opportunities:
+            break
+
+        for item in page_opportunities:
+            enriched = {
+                **item,
+                '_pipelineName': stage_info.get('pipeline_name'),
+                '_pipelineStageName': stage_info.get('stage_name'),
+            }
+            if str(item.get('pipelineStageId') or '') == stage_info['stage_id'] or _support_stage_match(enriched):
+                opportunities.append(enriched)
+
+        meta = data.get('meta') or {}
+        if not meta.get('startAfter') or not meta.get('startAfterId'):
+            break
+        params['startAfter'] = meta['startAfter']
+        params['startAfterId'] = meta['startAfterId']
+
+    return opportunities
+
+
+async def _fetch_editorial_account(account: GHLAccount) -> dict:
+    group = {
+        'account_id': account.id,
+        'account': account.name,
+        'count': 0,
+        'total_value': 0,
+        'items': [],
+        'error': None,
+    }
+    try:
+        client = GHLClient(decrypt_token(account.api_token_encrypted))
+        pipelines = await client.get('/opportunities/pipelines', params={'locationId': account.location_id})
+        stages = _stage_infos(pipelines)
+        if not stages:
+            return group
+
+        stage_results = await asyncio.gather(*[
+            _fetch_stage_opportunities(client, account.location_id, stage)
+            for stage in stages
+        ])
+        for opportunities in stage_results:
+            for raw in opportunities:
+                value = _money_value(raw)
+                group['count'] += 1
+                group['total_value'] += value
+                group['items'].append({
+                    'id': raw.get('id'),
+                    'name': _contact_name(raw),
+                    'email': _contact_field(raw, 'email'),
+                    'phone': _contact_field(raw, 'phone'),
+                    'value': value,
+                    'status': raw.get('status'),
+                    'stage': raw.get('_pipelineStageName') or raw.get('pipelineStageName') or raw.get('stageName'),
+                    'updated_at': raw.get('lastStageChangeAt') or raw.get('updatedAt') or raw.get('createdAt'),
+                })
+    except Exception as exc:
+        group['error'] = str(exc)
+    return group
 
 
 @router.get('/compare-dates')
@@ -150,47 +250,17 @@ def executive(
 
 
 @router.get('/editorial-support')
-def editorial_support(db: Session = Depends(get_db)):
-    rows = db.execute(
-        select(Opportunity, GHLAccount)
-        .join(GHLAccount, Opportunity.account_id == GHLAccount.id)
-        .where(GHLAccount.active.is_(True))
-        .order_by(GHLAccount.name, Opportunity.synced_at.desc())
-    ).all()
-
-    groups: dict[int, dict] = {}
-    total = 0
-    for opportunity, account in rows:
-        raw = _raw_dict(opportunity.raw_data)
-        if not _support_stage_match(raw):
-            continue
-
-        group = groups.setdefault(account.id, {
-            'account_id': account.id,
-            'account': account.name,
-            'count': 0,
-            'total_value': 0,
-            'items': [],
-        })
-        value = _decimal_to_float(opportunity.monetary_value)
-        group['count'] += 1
-        group['total_value'] += value
-        group['items'].append({
-            'id': opportunity.ghl_opportunity_id,
-            'name': _contact_name(raw),
-            'email': _contact_field(raw, 'email'),
-            'phone': _contact_field(raw, 'phone'),
-            'value': value,
-            'status': opportunity.status,
-            'stage': raw.get('_pipelineStageName') or raw.get('pipelineStageName') or raw.get('stageName'),
-            'updated_at': raw.get('lastStageChangeAt') or raw.get('updatedAt') or opportunity.synced_at.isoformat(),
-        })
-        total += 1
+async def editorial_support(db: Session = Depends(get_db)):
+    accounts = list(db.query(GHLAccount).filter(GHLAccount.active.is_(True)).order_by(GHLAccount.name).all())
+    groups = await asyncio.gather(*[_fetch_editorial_account(account) for account in accounts])
+    visible_groups = [group for group in groups if group['count'] or group['error']]
+    total = sum(group['count'] for group in visible_groups)
 
     return {
         'stage': 'Suporte editorial',
         'total': total,
-        'groups': sorted(groups.values(), key=lambda item: item['account'].lower()),
+        'source': 'ghl-live',
+        'groups': sorted(visible_groups, key=lambda item: item['account'].lower()),
     }
 
 

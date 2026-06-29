@@ -601,7 +601,7 @@ async function renderEditorialSupport() {
       container.innerHTML = `${section('Suporte editorial')}
         <div class="empty-state">
           <strong>Nenhuma oportunidade encontrada em Suporte editorial.</strong>
-          <span>Atualize o GHL para sincronizar as etapas mais recentes do funil.</span>
+          <span>Conferi o CRM em tempo real e nenhuma revista selecionada tem pessoas nessa etapa agora.</span>
         </div>`;
       return;
     }
@@ -621,7 +621,13 @@ async function renderEditorialSupport() {
               <span>${group.count} oportunidades</span>
             </header>
             <div class="support-cards">
-              ${group.items.map((item) => `
+              ${group.error ? `<div class="support-card support-error">
+                <div class="support-person">
+                  <strong>Erro ao consultar esta revista</strong>
+                </div>
+                <div class="support-meta"><span>${escapeHtml(group.error)}</span></div>
+              </div>` : ''}
+              ${(group.items || []).map((item) => `
                 <div class="support-card">
                   <div class="support-person">
                     <strong>${escapeHtml(item.name)}</strong>
