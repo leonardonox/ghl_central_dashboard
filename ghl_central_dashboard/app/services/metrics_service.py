@@ -332,7 +332,7 @@ class MetricsService:
         return len(identifiers)
 
     def _conversation_entry_date(self, conversation: Conversation) -> datetime | None:
-        return conversation.last_inbound_whatsapp_message_date or conversation.last_message_date
+        return conversation.last_message_date or conversation.last_inbound_whatsapp_message_date
 
     def _inbox_conversations_for_account(self, account_id: int, start_date: date, end_date: date) -> int:
         start, end = self._period_range(start_date, end_date)

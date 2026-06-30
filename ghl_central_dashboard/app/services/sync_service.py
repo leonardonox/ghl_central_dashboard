@@ -162,17 +162,39 @@ class GHLSyncService:
         return opportunities
 
     async def _fetch_conversations(self, client: GHLClient, location_id: str) -> list[dict]:
-        data = await client.get('/conversations/search', params={'locationId': location_id, 'limit': 100})
-        return data.get('conversations', [])
+        conversations: list[dict] = []
+        params = {'locationId': location_id, 'limit': 100}
+
+        while True:
+            data = await client.get('/conversations/search', params=params)
+            page_conversations = data.get('conversations', [])
+            conversations.extend(page_conversations)
+
+            if not page_conversations:
+                break
+
+            meta = data.get('meta') or {}
+            if not meta.get('startAfter') or not meta.get('startAfterId'):
+                break
+
+            params['startAfter'] = meta['startAfter']
+            params['startAfterId'] = meta['startAfterId']
+
+        return conversations
 
     def _parse_date(self, value: str | None) -> datetime:
         if not value:
             return datetime.utcnow()
         return datetime.fromisoformat(value.replace('Z', '+00:00')).replace(tzinfo=None)
 
-    def _parse_timestamp_ms(self, value: int | None) -> datetime | None:
+    def _parse_timestamp_ms(self, value: int | str | None) -> datetime | None:
         if not value:
             return None
+        if isinstance(value, str):
+            if value.isdigit():
+                value = int(value)
+            else:
+                return self._parse_date(value)
         return datetime.utcfromtimestamp(value / 1000)
 
     def _clean_text(self, value: str | None) -> str:
