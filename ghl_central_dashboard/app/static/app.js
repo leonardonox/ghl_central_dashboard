@@ -506,43 +506,63 @@ function renderMagazine(currentRows) {
 }
 
 function renderCompare(currentRows) {
-  const [first = state.accounts[0]?.name, second = state.accounts[1]?.name || state.accounts[0]?.name] = selectedNames();
-  const options = state.accounts.map((account) => `<option value="${account.name}">${account.name}</option>`).join('');
-  const left = currentRows.find((row) => row.account === first) || currentRows[0];
-  const right = currentRows.find((row) => row.account === second) || currentRows[1] || currentRows[0];
   const metrics = ['new_leads', 'inbox_conversations', 'whatsapp_contacts', 'attendances', 'sales', 'attendance_rate', 'sales_rate', 'channel_identified_rate', 'health_score'];
+  const rows = [...currentRows].sort((a, b) => Number(b.new_leads || 0) - Number(a.new_leads || 0));
 
-  $('comparar').innerHTML = `${section('Comparar duas revistas')}
-    <div class="compare-selectors">
-      <label><span>Revista A</span><select id="compare-a">${options}</select></label>
-      <label><span>Revista B</span><select id="compare-b">${options}</select></label>
+  $('comparar').innerHTML = `${section('Comparar revistas')}
+    <div class="card compare-filter-card">
+      <div class="compare-filter-head">
+        <div>
+          <strong>Revistas na comparação</strong>
+          <span>${state.selectedAccounts.size} de ${state.accounts.length} selecionadas</span>
+        </div>
+        <button id="compare-select-all" class="secondary" type="button">Selecionar todas</button>
+      </div>
+      <div class="compare-chips">
+        ${state.accounts.map((account) => {
+          const active = state.selectedAccounts.has(account.name);
+          return `<button type="button" class="compare-chip ${active ? '' : 'off'}" data-account="${account.name}">${account.name}</button>`;
+        }).join('')}
+      </div>
+    </div>
+    <br>
+    <div class="lead-panel">
+      ${rows.map((row) => `
+        <article class="lead-card">
+          <span>${row.account}</span>
+          <strong>${row.new_leads || 0}</strong>
+          <small>leads</small>
+        </article>
+      `).join('') || '<div class="empty-state"><strong>Nenhuma revista selecionada.</strong></div>'}
     </div>
     <br>
     <div class="card compare-table">
       <table>
-        <thead><tr><th>Indicador</th><th>${left?.account || '-'}</th><th>${right?.account || '-'}</th><th>Vencedor</th></tr></thead>
+        <thead><tr><th>Indicador</th>${rows.map((row) => `<th>${row.account}</th>`).join('')}<th>Vencedor</th></tr></thead>
         <tbody>
           ${metrics.map((key) => {
-            const leftValue = Number(left?.[key] || 0);
-            const rightValue = Number(right?.[key] || 0);
-            const winner = leftValue === rightValue ? 'Empate' : leftValue > rightValue ? left.account : right.account;
-            return `<tr><td>${metricLabels[key]}</td><td>${cardValue(left, key)}</td><td>${cardValue(right, key)}</td><td>${winner}</td></tr>`;
+            const bestValue = Math.max(...rows.map((row) => Number(row[key] || 0)), 0);
+            const winners = rows.filter((row) => Number(row[key] || 0) === bestValue).map((row) => row.account);
+            const winner = !rows.length ? '-' : winners.length === rows.length ? 'Empate' : winners.join(', ');
+            return `<tr><td>${metricLabels[key]}</td>${rows.map((row) => `<td>${cardValue(row, key)}</td>`).join('')}<td>${winner}</td></tr>`;
           }).join('')}
         </tbody>
       </table>
     </div>`;
 
-  $('compare-a').value = left?.account || '';
-  $('compare-b').value = right?.account || '';
-  $('compare-a').addEventListener('change', () => {
-    state.selectedAccounts = new Set([$('compare-a').value, $('compare-b').value]);
+  $('compare-select-all').addEventListener('click', () => {
+    state.selectedAccounts = new Set(state.accounts.map((account) => account.name));
     renderChips();
     renderCompare(filterRows(state.current.rows));
   });
-  $('compare-b').addEventListener('change', () => {
-    state.selectedAccounts = new Set([$('compare-a').value, $('compare-b').value]);
-    renderChips();
-    renderCompare(filterRows(state.current.rows));
+  document.querySelectorAll('.compare-chip').forEach((button) => {
+    button.addEventListener('click', () => {
+      const name = button.dataset.account;
+      if (state.selectedAccounts.has(name)) state.selectedAccounts.delete(name);
+      else state.selectedAccounts.add(name);
+      renderChips();
+      renderCompare(filterRows(state.current.rows));
+    });
   });
 }
 

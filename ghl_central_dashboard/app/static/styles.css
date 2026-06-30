@@ -1301,6 +1301,95 @@ tbody tr:hover {
   border-radius: 8px;
 }
 
+.compare-filter-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.compare-filter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.compare-filter-head strong {
+  display: block;
+  color: #063a31;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.compare-filter-head span {
+  display: block;
+  margin-top: 3px;
+  color: #52655f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.compare-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.compare-chip {
+  min-height: 34px;
+  border: 1px solid #0b7f65;
+  color: #ffffff;
+  background: #0b7f65;
+  box-shadow: 0 2px 8px rgba(11, 127, 101, .15);
+}
+
+.compare-chip.off {
+  color: #52655f;
+  border-color: #cfe4dc;
+  background: #edf5f2;
+  box-shadow: none;
+}
+
+.lead-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.lead-card {
+  display: grid;
+  gap: 5px;
+  min-height: 104px;
+  padding: 14px;
+  border: 1px solid #cfe4dc;
+  border-left: 5px solid #0b7f65;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.lead-card span {
+  overflow: hidden;
+  color: #52655f;
+  font-size: 12px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.lead-card strong {
+  color: #052f2a;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.lead-card small {
+  color: #52655f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .config-row {
   border-radius: 8px;
   background: #ffffff;
