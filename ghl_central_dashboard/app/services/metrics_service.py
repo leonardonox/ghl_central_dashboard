@@ -365,6 +365,20 @@ class MetricsService:
             )
         )
 
+    def _has_ghl_sla_timer(self, conversation: Conversation) -> bool:
+        raw = conversation.raw_data or {}
+        return bool(raw.get('slaStartAt') or raw.get('dueAt') or raw.get('overdueAt'))
+
+    def _last_actor(self, conversation: Conversation) -> str:
+        direction = self._clean_text(conversation.last_message_direction)
+        if 'inbound' in direction or 'incoming' in direction or 'received' in direction:
+            return 'Cliente'
+        if 'outbound' in direction:
+            if self._has_ghl_sla_timer(conversation):
+                return 'IA/Automacao'
+            return 'Atendente'
+        return 'Indefinido'
+
     def sla_dashboard(self, start_date: date, end_date: date, sla_hours: int = 2) -> dict:
         start, end = self._period_range(start_date, end_date)
         now = datetime.utcnow()
@@ -379,6 +393,8 @@ class MetricsService:
         total_overdue = 0
         total_wait_minutes = 0
         total_unread = 0
+        total_ai_handling = 0
+        total_human_replied = 0
 
         for account in accounts:
             conversations = list(self.db.scalars(
@@ -392,6 +408,14 @@ class MetricsService:
                 item for item in conversations
                 if self._is_waiting_response(item)
             ]
+            ai_handling_count = sum(
+                1 for item in active_sla
+                if self._last_actor(item) == 'IA/Automacao'
+            )
+            human_replied_count = sum(
+                1 for item in period_conversations
+                if self._last_actor(item) == 'Atendente'
+            )
 
             waiting_items = []
             for item in active_sla:
@@ -416,6 +440,7 @@ class MetricsService:
                     'unread_count': unread_count,
                     'last_message_type': item.last_message_type,
                     'last_message_direction': item.last_message_direction,
+                    'last_actor': self._last_actor(item),
                     'last_message_at': entry_date.isoformat() if entry_date else None,
                     'last_message_body': raw.get('lastMessageBody'),
                     'sla_start_at': sla_start_at.isoformat() if sla_start_at else None,
@@ -440,6 +465,8 @@ class MetricsService:
             total_conversations += len(period_conversations)
             total_waiting += len(waiting_items)
             total_overdue += overdue_count
+            total_ai_handling += ai_handling_count
+            total_human_replied += human_replied_count
 
             rows.append({
                 'account_id': account.id,
@@ -447,6 +474,8 @@ class MetricsService:
                 'conversations': len(period_conversations),
                 'waiting_response': len(waiting_items),
                 'unread': sum(item['unread_count'] for item in waiting_items),
+                'ai_handling': ai_handling_count,
+                'human_replied': human_replied_count,
                 'overdue': overdue_count,
                 'due_soon': due_soon_count,
                 'sla_ok': max(len(waiting_items) - overdue_count, 0),
@@ -469,6 +498,8 @@ class MetricsService:
                 'conversations': total_conversations,
                 'waiting_response': total_waiting,
                 'unread': total_unread,
+                'ai_handling': total_ai_handling,
+                'human_replied': total_human_replied,
                 'overdue': total_overdue,
                 'sla_ok': max(total_waiting - total_overdue, 0),
                 'avg_wait_minutes': round(total_wait_minutes / total_waiting, 1) if total_waiting else 0,

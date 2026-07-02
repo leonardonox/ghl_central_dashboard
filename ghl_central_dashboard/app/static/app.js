@@ -627,10 +627,23 @@ function slaStatusClass(item) {
   return 'ok';
 }
 
+function actorClass(actor) {
+  if (actor === 'IA/Automacao') return 'ai';
+  if (actor === 'Atendente') return 'human';
+  if (actor === 'Cliente') return 'client';
+  return 'unknown';
+}
+
+function actorLabel(actor) {
+  if (actor === 'IA/Automacao') return 'IA/automação';
+  return actor || 'Indefinido';
+}
+
 function slaCriticalTable(items) {
   return `<table class="sla-table"><thead><tr>
     <th>Revista</th>
     <th>Contato</th>
+    <th>Última interação</th>
     <th>Não lidas</th>
     <th>Telefone</th>
     <th>Ultima mensagem</th>
@@ -642,6 +655,7 @@ function slaCriticalTable(items) {
     <tr>
       <td>${escapeHtml(item.account)}</td>
       <td>${escapeHtml(item.contact_name)}</td>
+      <td><span class="actor-pill ${actorClass(item.last_actor)}">${escapeHtml(actorLabel(item.last_actor))}</span></td>
       <td>${item.unread_count || 0}</td>
       <td>${escapeHtml(item.phone || '-')}</td>
       <td>${escapeHtml(formatDateTime(item.last_message_at))}</td>
@@ -659,6 +673,8 @@ function slaSummaryTable(rows) {
     <th>Conversas</th>
     <th>Sem resposta</th>
     <th>Não lidas</th>
+    <th>Com IA</th>
+    <th>Atendente respondeu</th>
     <th>SLA vencido</th>
     <th>Vence em breve</th>
     <th>Dentro do SLA</th>
@@ -671,6 +687,8 @@ function slaSummaryTable(rows) {
       <td>${row.conversations}</td>
       <td>${row.waiting_response}</td>
       <td>${row.unread || 0}</td>
+      <td>${row.ai_handling || 0}</td>
+      <td>${row.human_replied || 0}</td>
       <td>${row.overdue}</td>
       <td>${row.due_soon || 0}</td>
       <td>${row.sla_ok}</td>
@@ -696,11 +714,13 @@ function renderSla() {
     acc.conversations += Number(row.conversations || 0);
     acc.waiting_response += Number(row.waiting_response || 0);
     acc.unread += Number(row.unread || 0);
+    acc.ai_handling += Number(row.ai_handling || 0);
+    acc.human_replied += Number(row.human_replied || 0);
     acc.due_soon += Number(row.due_soon || 0);
     acc.overdue += Number(row.overdue || 0);
     acc.sla_ok += Number(row.sla_ok || 0);
     return acc;
-  }, { conversations: 0, waiting_response: 0, unread: 0, due_soon: 0, overdue: 0, sla_ok: 0 });
+  }, { conversations: 0, waiting_response: 0, unread: 0, ai_handling: 0, human_replied: 0, due_soon: 0, overdue: 0, sla_ok: 0 });
   const overdueRate = totals.waiting_response ? (totals.overdue / totals.waiting_response) * 100 : 0;
   const avgWait = critical.length
     ? Math.round(critical.reduce((sumValue, item) => sumValue + Number(item.wait_minutes || 0), 0) / critical.length)
@@ -711,6 +731,8 @@ function renderSla() {
     <div class="kpi-grid">
       ${singleKpi('Conversas no periodo', totals.conversations, 'entraram na caixa', 'blue')}
       ${singleKpi('SLA ativo', totals.waiting_response, 'timer vindo do GHL', totals.waiting_response ? 'orange' : 'green')}
+      ${singleKpi('Com IA', totals.ai_handling, 'IA respondeu mas SLA segue', totals.ai_handling ? 'orange' : 'green')}
+      ${singleKpi('Atendente respondeu', totals.human_replied, 'SLA resolvido por humano', 'green')}
       ${singleKpi('Não lidas', totals.unread, 'unreadCount do GHL', totals.unread ? 'orange' : 'green')}
       ${singleKpi('SLA vencido', totals.overdue, 'overdueAt já passou', totals.overdue ? 'red' : 'green')}
       ${singleKpi('Vence em breve', totals.due_soon, 'proximos 30 min', totals.due_soon ? 'orange' : 'green')}

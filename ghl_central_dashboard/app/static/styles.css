@@ -1581,6 +1581,37 @@ tbody tr:hover {
   background: #ffe4e1;
 }
 
+.actor-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.actor-pill.ai {
+  color: #8a5200;
+  background: #fff1cf;
+}
+
+.actor-pill.human {
+  color: #075e4a;
+  background: #dff4ed;
+}
+
+.actor-pill.client {
+  color: #174f7f;
+  background: #e4f0fb;
+}
+
+.actor-pill.unknown {
+  color: #52655f;
+  background: #edf5f2;
+}
+
 .sla-table th {
   position: static;
   top: auto;
