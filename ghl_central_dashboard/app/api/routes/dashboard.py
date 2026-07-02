@@ -249,6 +249,16 @@ def executive(
     return MetricsService(db).executive_dashboard(start_date, end_date)
 
 
+@router.get('/sla')
+def sla(
+    start_date: date,
+    end_date: date,
+    sla_hours: int = 2,
+    db: Session = Depends(get_db),
+):
+    return MetricsService(db).sla_dashboard(start_date, end_date, sla_hours)
+
+
 @router.get('/editorial-support')
 async def editorial_support(db: Session = Depends(get_db)):
     accounts = list(db.query(GHLAccount).filter(GHLAccount.active.is_(True)).order_by(GHLAccount.name).all())

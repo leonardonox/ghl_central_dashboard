@@ -18,6 +18,7 @@ const state = {
   selectedAccounts: new Set(),
   current: null,
   previous: null,
+  sla: null,
   weeks: [],
   selectedWeekIndex: 0,
   rankingMetric: 'new_leads',
@@ -597,6 +598,100 @@ async function renderIndividual() {
   `;
 }
 
+function formatWait(minutes) {
+  const value = Number(minutes || 0);
+  const hours = Math.floor(value / 60);
+  const mins = value % 60;
+  if (hours <= 0) return `${mins} min`;
+  return `${hours}h ${String(mins).padStart(2, '0')}min`;
+}
+
+function slaCriticalTable(items) {
+  return `<table><thead><tr>
+    <th>Revista</th>
+    <th>Contato</th>
+    <th>Telefone</th>
+    <th>Ultima mensagem</th>
+    <th>Espera</th>
+    <th>Status</th>
+  </tr></thead><tbody>${items.map((item) => `
+    <tr>
+      <td>${escapeHtml(item.account)}</td>
+      <td>${escapeHtml(item.contact_name)}</td>
+      <td>${escapeHtml(item.phone || '-')}</td>
+      <td>${escapeHtml(formatDateTime(item.last_message_at))}</td>
+      <td>${escapeHtml(formatWait(item.wait_minutes))}</td>
+      <td><span class="sla-pill ${item.overdue ? 'overdue' : 'ok'}">${item.overdue ? 'Vencido' : 'Dentro do SLA'}</span></td>
+    </tr>
+  `).join('')}</tbody></table>`;
+}
+
+function renderSla() {
+  const data = state.sla;
+  const container = $('sla');
+  if (!data) {
+    container.innerHTML = `${section('SLA de atendimento')}<div class="support-loading">Carregando SLA...</div>`;
+    return;
+  }
+
+  const selected = new Set(selectedNames());
+  const rows = (data.rows || []).filter((row) => selected.has(row.account));
+  const critical = (data.critical_items || []).filter((item) => selected.has(item.account));
+  const totals = rows.reduce((acc, row) => {
+    acc.conversations += Number(row.conversations || 0);
+    acc.waiting_response += Number(row.waiting_response || 0);
+    acc.overdue += Number(row.overdue || 0);
+    acc.sla_ok += Number(row.sla_ok || 0);
+    return acc;
+  }, { conversations: 0, waiting_response: 0, overdue: 0, sla_ok: 0 });
+  const overdueRate = totals.waiting_response ? (totals.overdue / totals.waiting_response) * 100 : 0;
+  const avgWait = critical.length
+    ? Math.round(critical.reduce((sumValue, item) => sumValue + Number(item.wait_minutes || 0), 0) / critical.length)
+    : 0;
+  const sortedRows = [...rows].sort((a, b) => Number(b.overdue || 0) - Number(a.overdue || 0));
+  const tableRows = sortedRows.map((row) => ({
+    account: row.account,
+    conversations: row.conversations,
+    waiting_response: row.waiting_response,
+    overdue: row.overdue,
+    sla_ok: row.sla_ok,
+    avg_wait: formatWait(Math.round(row.avg_wait_minutes || 0)),
+    max_wait: formatWait(row.max_wait_minutes),
+    overdue_rate: pct(row.overdue_rate || 0),
+  }));
+
+  container.innerHTML = `${section('SLA de atendimento')}
+    <div class="kpi-grid">
+      ${singleKpi('Conversas no periodo', totals.conversations, 'entraram na caixa', 'blue')}
+      ${singleKpi('Sem resposta', totals.waiting_response, 'ultima mensagem recebida', totals.waiting_response ? 'orange' : 'green')}
+      ${singleKpi('SLA vencido', totals.overdue, `acima de ${data.sla_hours}h`, totals.overdue ? 'red' : 'green')}
+      ${singleKpi('Dentro do SLA', totals.sla_ok, 'aguardando dentro do limite', 'green')}
+      ${singleKpi('Tempo medio', formatWait(avgWait), 'conversas sem resposta', 'orange')}
+      ${singleKpi('Taxa vencida', pct(overdueRate), 'vencidas / sem resposta', overdueRate ? 'red' : 'green')}
+    </div>
+    <br>
+    <div class="grid-2">
+      <article class="card chart-card">
+        <h3>Revistas com mais SLA vencido</h3>
+        ${bars(sortedRows, 'overdue', totals.overdue ? 'orange' : 'green')}
+      </article>
+      <article class="card chart-card">
+        <h3>Conversas aguardando resposta</h3>
+        ${bars([...rows].sort((a, b) => Number(b.waiting_response || 0) - Number(a.waiting_response || 0)), 'waiting_response', 'blue')}
+      </article>
+    </div>
+    <br>
+    <article class="card compare-table">
+      <h3>Resumo por revista</h3>
+      ${tableRows.length ? table(tableRows) : '<p>Sem conversas para os filtros selecionados.</p>'}
+    </article>
+    <br>
+    <article class="card compare-table">
+      <h3>Fila critica</h3>
+      ${critical.length ? slaCriticalTable(critical.slice(0, 40)) : '<p>Nenhuma conversa sem resposta no periodo.</p>'}
+    </article>`;
+}
+
 function renderAlerts() {
   const alerts = state.current.alerts.filter((alert) => selectedNames().includes(alert.account));
   $('alertas').innerHTML = `${section('Alertas e diagnóstico')}
@@ -791,6 +886,7 @@ function render() {
   renderCompare(currentRows);
   renderChannels();
   renderIndividual();
+  renderSla();
   renderAlerts();
   renderEditorialSupport();
   renderConfig();
@@ -816,6 +912,7 @@ async function loadDashboard() {
     $('period-label').textContent = `Período: ${iso(start)} a ${iso(end)} | Comparação: ${iso(prevStart)} a ${iso(prevEnd)}`;
     state.current = await api(`/dashboard/executive?start_date=${iso(start)}&end_date=${iso(end)}`);
     state.previous = await api(`/dashboard/executive?start_date=${iso(prevStart)}&end_date=${iso(prevEnd)}`);
+    state.sla = await api(`/dashboard/sla?start_date=${iso(start)}&end_date=${iso(end)}&sla_hours=2`);
     $('last-sync').textContent = `Atualizado: ${formatDateTime(state.current.last_sync_at)}`;
     render();
     hideStatus();

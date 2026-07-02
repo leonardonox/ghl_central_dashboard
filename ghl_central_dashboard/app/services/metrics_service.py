@@ -334,6 +334,107 @@ class MetricsService:
     def _conversation_entry_date(self, conversation: Conversation) -> datetime | None:
         return conversation.last_message_date or conversation.last_inbound_whatsapp_message_date
 
+    def _is_waiting_response(self, conversation: Conversation) -> bool:
+        direction = self._clean_text(conversation.last_message_direction)
+        entry_date = self._conversation_entry_date(conversation)
+        return (
+            'inbound' in direction
+            or 'incoming' in direction
+            or 'received' in direction
+            or (
+                not direction
+                and entry_date is not None
+                and conversation.last_inbound_whatsapp_message_date == entry_date
+            )
+        )
+
+    def sla_dashboard(self, start_date: date, end_date: date, sla_hours: int = 2) -> dict:
+        start, end = self._period_range(start_date, end_date)
+        now = datetime.utcnow()
+        accounts = list(self.db.scalars(
+            select(GHLAccount).where(GHLAccount.active.is_(True)).order_by(GHLAccount.name)
+        ))
+
+        rows = []
+        critical_items = []
+        total_conversations = 0
+        total_waiting = 0
+        total_overdue = 0
+        total_wait_minutes = 0
+
+        for account in accounts:
+            conversations = list(self.db.scalars(
+                select(Conversation).where(Conversation.account_id == account.id)
+            ))
+            period_conversations = [
+                item for item in conversations
+                if (entry_date := self._conversation_entry_date(item)) and entry_date >= start and entry_date < end
+            ]
+            waiting = [item for item in period_conversations if self._is_waiting_response(item)]
+
+            waiting_items = []
+            for item in waiting:
+                entry_date = self._conversation_entry_date(item)
+                wait_minutes = int((now - entry_date).total_seconds() // 60) if entry_date else 0
+                overdue = wait_minutes >= sla_hours * 60
+                payload = {
+                    'account_id': account.id,
+                    'account': account.name,
+                    'conversation_id': item.ghl_conversation_id,
+                    'contact_id': item.contact_id,
+                    'contact_name': item.contact_name or 'Sem nome',
+                    'phone': item.phone,
+                    'last_message_type': item.last_message_type,
+                    'last_message_direction': item.last_message_direction,
+                    'last_message_at': entry_date.isoformat() if entry_date else None,
+                    'wait_minutes': wait_minutes,
+                    'wait_hours': round(wait_minutes / 60, 2),
+                    'overdue': overdue,
+                }
+                waiting_items.append(payload)
+                critical_items.append(payload)
+                total_wait_minutes += wait_minutes
+
+            overdue_count = sum(1 for item in waiting_items if item['overdue'])
+            total_conversations += len(period_conversations)
+            total_waiting += len(waiting_items)
+            total_overdue += overdue_count
+
+            rows.append({
+                'account_id': account.id,
+                'account': account.name,
+                'conversations': len(period_conversations),
+                'waiting_response': len(waiting_items),
+                'overdue': overdue_count,
+                'sla_ok': max(len(waiting_items) - overdue_count, 0),
+                'avg_wait_minutes': round(
+                    sum(item['wait_minutes'] for item in waiting_items) / len(waiting_items),
+                    1,
+                ) if waiting_items else 0,
+                'max_wait_minutes': max((item['wait_minutes'] for item in waiting_items), default=0),
+                'overdue_rate': self._percent(overdue_count, len(waiting_items)),
+            })
+
+        critical_items = sorted(critical_items, key=lambda item: item['wait_minutes'], reverse=True)
+        worst_accounts = sorted(rows, key=lambda item: (item['overdue'], item['waiting_response']), reverse=True)
+
+        return {
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat(),
+            'sla_hours': sla_hours,
+            'totals': {
+                'conversations': total_conversations,
+                'waiting_response': total_waiting,
+                'overdue': total_overdue,
+                'sla_ok': max(total_waiting - total_overdue, 0),
+                'avg_wait_minutes': round(total_wait_minutes / total_waiting, 1) if total_waiting else 0,
+                'overdue_rate': self._percent(total_overdue, total_waiting),
+            },
+            'rows': rows,
+            'critical_items': critical_items[:80],
+            'worst_accounts': worst_accounts[:10],
+        }
+
     def _inbox_conversations_for_account(self, account_id: int, start_date: date, end_date: date) -> int:
         start, end = self._period_range(start_date, end_date)
         conversations = list(self.db.scalars(

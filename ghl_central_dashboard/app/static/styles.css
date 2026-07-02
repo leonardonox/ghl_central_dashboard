@@ -1529,6 +1529,27 @@ tbody tr:hover {
   border-radius: 6px;
 }
 
+.sla-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.sla-pill.ok {
+  color: #075e4a;
+  background: #dff4ed;
+}
+
+.sla-pill.overdue {
+  color: #9f1d16;
+  background: #ffe4e1;
+}
+
 @media (max-width: 1400px) {
   .kpi-grid {
     grid-template-columns: repeat(4, minmax(160px, 1fr));
