@@ -1550,6 +1550,16 @@ tbody tr:hover {
   background: #ffe4e1;
 }
 
+.sla-table th {
+  position: static;
+  top: auto;
+}
+
+.sla-table td,
+.sla-table th {
+  vertical-align: middle;
+}
+
 @media (max-width: 1400px) {
   .kpi-grid {
     grid-template-columns: repeat(4, minmax(160px, 1fr));

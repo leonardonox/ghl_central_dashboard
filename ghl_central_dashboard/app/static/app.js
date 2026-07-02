@@ -607,7 +607,7 @@ function formatWait(minutes) {
 }
 
 function slaCriticalTable(items) {
-  return `<table><thead><tr>
+  return `<table class="sla-table"><thead><tr>
     <th>Revista</th>
     <th>Contato</th>
     <th>Telefone</th>
@@ -622,6 +622,30 @@ function slaCriticalTable(items) {
       <td>${escapeHtml(formatDateTime(item.last_message_at))}</td>
       <td>${escapeHtml(formatWait(item.wait_minutes))}</td>
       <td><span class="sla-pill ${item.overdue ? 'overdue' : 'ok'}">${item.overdue ? 'Vencido' : 'Dentro do SLA'}</span></td>
+    </tr>
+  `).join('')}</tbody></table>`;
+}
+
+function slaSummaryTable(rows) {
+  return `<table class="sla-table"><thead><tr>
+    <th>Revista</th>
+    <th>Conversas</th>
+    <th>Sem resposta</th>
+    <th>SLA vencido</th>
+    <th>Dentro do SLA</th>
+    <th>Tempo medio</th>
+    <th>Maior espera</th>
+    <th>Taxa vencida</th>
+  </tr></thead><tbody>${rows.map((row) => `
+    <tr>
+      <td>${escapeHtml(row.account)}</td>
+      <td>${row.conversations}</td>
+      <td>${row.waiting_response}</td>
+      <td>${row.overdue}</td>
+      <td>${row.sla_ok}</td>
+      <td>${escapeHtml(formatWait(Math.round(row.avg_wait_minutes || 0)))}</td>
+      <td>${escapeHtml(formatWait(row.max_wait_minutes))}</td>
+      <td>${escapeHtml(pct(row.overdue_rate || 0))}</td>
     </tr>
   `).join('')}</tbody></table>`;
 }
@@ -649,16 +673,6 @@ function renderSla() {
     ? Math.round(critical.reduce((sumValue, item) => sumValue + Number(item.wait_minutes || 0), 0) / critical.length)
     : 0;
   const sortedRows = [...rows].sort((a, b) => Number(b.overdue || 0) - Number(a.overdue || 0));
-  const tableRows = sortedRows.map((row) => ({
-    account: row.account,
-    conversations: row.conversations,
-    waiting_response: row.waiting_response,
-    overdue: row.overdue,
-    sla_ok: row.sla_ok,
-    avg_wait: formatWait(Math.round(row.avg_wait_minutes || 0)),
-    max_wait: formatWait(row.max_wait_minutes),
-    overdue_rate: pct(row.overdue_rate || 0),
-  }));
 
   container.innerHTML = `${section('SLA de atendimento')}
     <div class="kpi-grid">
@@ -683,7 +697,7 @@ function renderSla() {
     <br>
     <article class="card compare-table">
       <h3>Resumo por revista</h3>
-      ${tableRows.length ? table(tableRows) : '<p>Sem conversas para os filtros selecionados.</p>'}
+      ${sortedRows.length ? slaSummaryTable(sortedRows) : '<p>Sem conversas para os filtros selecionados.</p>'}
     </article>
     <br>
     <article class="card compare-table">
