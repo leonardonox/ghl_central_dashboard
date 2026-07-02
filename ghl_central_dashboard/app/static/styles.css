@@ -1545,8 +1545,39 @@ tbody tr:hover {
   background: #dff4ed;
 }
 
+.sla-pill.soon {
+  color: #8a5200;
+  background: #fff1cf;
+}
+
 .sla-pill.overdue {
   color: #9f1d16;
+  background: #ffe4e1;
+}
+
+.sla-clock {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.sla-clock.ok {
+  color: #075e4a;
+  background: #dff4ed;
+}
+
+.sla-clock.soon {
+  color: #8a5200;
+  background: #fff1cf;
+}
+
+.sla-clock.overdue {
+  color: #d92d20;
   background: #ffe4e1;
 }
 
@@ -1558,6 +1589,14 @@ tbody tr:hover {
 .sla-table td,
 .sla-table th {
   vertical-align: middle;
+}
+
+.sla-message {
+  max-width: 360px;
+  overflow: hidden;
+  color: #52655f;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 1400px) {

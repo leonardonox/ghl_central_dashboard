@@ -334,10 +334,27 @@ class MetricsService:
     def _conversation_entry_date(self, conversation: Conversation) -> datetime | None:
         return conversation.last_message_date or conversation.last_inbound_whatsapp_message_date
 
+    def _raw_datetime(self, raw: dict, key: str) -> datetime | None:
+        value = raw.get(key)
+        if not value:
+            return None
+        if isinstance(value, str) and not value.isdigit():
+            return datetime.fromisoformat(value.replace('Z', '+00:00')).replace(tzinfo=None)
+        return datetime.utcfromtimestamp(int(value) / 1000)
+
+    def _raw_int(self, raw: dict, key: str) -> int:
+        try:
+            return int(raw.get(key) or 0)
+        except (TypeError, ValueError):
+            return 0
+
     def _is_waiting_response(self, conversation: Conversation) -> bool:
         direction = self._clean_text(conversation.last_message_direction)
         entry_date = self._conversation_entry_date(conversation)
+        raw = conversation.raw_data or {}
         return (
+            bool(raw.get('slaStartAt') or raw.get('dueAt') or raw.get('overdueAt'))
+            or
             'inbound' in direction
             or 'incoming' in direction
             or 'received' in direction
@@ -361,6 +378,7 @@ class MetricsService:
         total_waiting = 0
         total_overdue = 0
         total_wait_minutes = 0
+        total_unread = 0
 
         for account in accounts:
             conversations = list(self.db.scalars(
@@ -370,13 +388,24 @@ class MetricsService:
                 item for item in conversations
                 if (entry_date := self._conversation_entry_date(item)) and entry_date >= start and entry_date < end
             ]
-            waiting = [item for item in period_conversations if self._is_waiting_response(item)]
+            active_sla = [
+                item for item in conversations
+                if self._is_waiting_response(item)
+            ]
 
             waiting_items = []
-            for item in waiting:
+            for item in active_sla:
+                raw = item.raw_data or {}
                 entry_date = self._conversation_entry_date(item)
-                wait_minutes = int((now - entry_date).total_seconds() // 60) if entry_date else 0
-                overdue = wait_minutes >= sla_hours * 60
+                sla_start_at = self._raw_datetime(raw, 'slaStartAt') or entry_date
+                due_at = self._raw_datetime(raw, 'dueAt')
+                overdue_at = self._raw_datetime(raw, 'overdueAt') or due_at
+                timer_start = sla_start_at or entry_date
+                wait_minutes = max(0, int((now - timer_start).total_seconds() // 60)) if timer_start else 0
+                overdue = bool(overdue_at and now >= overdue_at)
+                overdue_minutes = max(0, int((now - overdue_at).total_seconds() // 60)) if overdue and overdue_at else 0
+                minutes_to_overdue = int((overdue_at - now).total_seconds() // 60) if overdue_at and not overdue else None
+                unread_count = self._raw_int(raw, 'unreadCount')
                 payload = {
                     'account_id': account.id,
                     'account': account.name,
@@ -384,18 +413,30 @@ class MetricsService:
                     'contact_id': item.contact_id,
                     'contact_name': item.contact_name or 'Sem nome',
                     'phone': item.phone,
+                    'unread_count': unread_count,
                     'last_message_type': item.last_message_type,
                     'last_message_direction': item.last_message_direction,
                     'last_message_at': entry_date.isoformat() if entry_date else None,
+                    'last_message_body': raw.get('lastMessageBody'),
+                    'sla_start_at': sla_start_at.isoformat() if sla_start_at else None,
+                    'due_at': due_at.isoformat() if due_at else None,
+                    'overdue_at': overdue_at.isoformat() if overdue_at else None,
                     'wait_minutes': wait_minutes,
                     'wait_hours': round(wait_minutes / 60, 2),
+                    'overdue_minutes': overdue_minutes,
+                    'minutes_to_overdue': minutes_to_overdue,
                     'overdue': overdue,
                 }
                 waiting_items.append(payload)
                 critical_items.append(payload)
                 total_wait_minutes += wait_minutes
+                total_unread += unread_count
 
             overdue_count = sum(1 for item in waiting_items if item['overdue'])
+            due_soon_count = sum(
+                1 for item in waiting_items
+                if item['minutes_to_overdue'] is not None and item['minutes_to_overdue'] <= 30
+            )
             total_conversations += len(period_conversations)
             total_waiting += len(waiting_items)
             total_overdue += overdue_count
@@ -405,7 +446,9 @@ class MetricsService:
                 'account': account.name,
                 'conversations': len(period_conversations),
                 'waiting_response': len(waiting_items),
+                'unread': sum(item['unread_count'] for item in waiting_items),
                 'overdue': overdue_count,
+                'due_soon': due_soon_count,
                 'sla_ok': max(len(waiting_items) - overdue_count, 0),
                 'avg_wait_minutes': round(
                     sum(item['wait_minutes'] for item in waiting_items) / len(waiting_items),
@@ -425,6 +468,7 @@ class MetricsService:
             'totals': {
                 'conversations': total_conversations,
                 'waiting_response': total_waiting,
+                'unread': total_unread,
                 'overdue': total_overdue,
                 'sla_ok': max(total_waiting - total_overdue, 0),
                 'avg_wait_minutes': round(total_wait_minutes / total_waiting, 1) if total_waiting else 0,

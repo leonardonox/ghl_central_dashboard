@@ -600,28 +600,55 @@ async function renderIndividual() {
 
 function formatWait(minutes) {
   const value = Number(minutes || 0);
-  const hours = Math.floor(value / 60);
-  const mins = value % 60;
+  const days = Math.floor(value / 1440);
+  const remainder = value % 1440;
+  const hours = Math.floor(remainder / 60);
+  const mins = remainder % 60;
+  if (days > 0) return `${days}d ${hours}h`;
   if (hours <= 0) return `${mins} min`;
   return `${hours}h ${String(mins).padStart(2, '0')}min`;
+}
+
+function formatSlaClock(item) {
+  if (item.overdue) return `-${formatWait(item.overdue_minutes || 0)}`;
+  if (item.minutes_to_overdue === null || item.minutes_to_overdue === undefined) return '-';
+  return formatWait(item.minutes_to_overdue);
+}
+
+function slaStatusLabel(item) {
+  if (item.overdue) return 'Vencido';
+  if (Number(item.minutes_to_overdue || 0) <= 30) return 'Vence em breve';
+  return 'Dentro do SLA';
+}
+
+function slaStatusClass(item) {
+  if (item.overdue) return 'overdue';
+  if (Number(item.minutes_to_overdue || 0) <= 30) return 'soon';
+  return 'ok';
 }
 
 function slaCriticalTable(items) {
   return `<table class="sla-table"><thead><tr>
     <th>Revista</th>
     <th>Contato</th>
+    <th>Não lidas</th>
     <th>Telefone</th>
     <th>Ultima mensagem</th>
-    <th>Espera</th>
+    <th>Timer GHL</th>
+    <th>Tempo SLA</th>
     <th>Status</th>
+    <th>Mensagem</th>
   </tr></thead><tbody>${items.map((item) => `
     <tr>
       <td>${escapeHtml(item.account)}</td>
       <td>${escapeHtml(item.contact_name)}</td>
+      <td>${item.unread_count || 0}</td>
       <td>${escapeHtml(item.phone || '-')}</td>
       <td>${escapeHtml(formatDateTime(item.last_message_at))}</td>
+      <td><span class="sla-clock ${slaStatusClass(item)}">${escapeHtml(formatSlaClock(item))}</span></td>
       <td>${escapeHtml(formatWait(item.wait_minutes))}</td>
-      <td><span class="sla-pill ${item.overdue ? 'overdue' : 'ok'}">${item.overdue ? 'Vencido' : 'Dentro do SLA'}</span></td>
+      <td><span class="sla-pill ${slaStatusClass(item)}">${slaStatusLabel(item)}</span></td>
+      <td class="sla-message">${escapeHtml(item.last_message_body || '-')}</td>
     </tr>
   `).join('')}</tbody></table>`;
 }
@@ -631,7 +658,9 @@ function slaSummaryTable(rows) {
     <th>Revista</th>
     <th>Conversas</th>
     <th>Sem resposta</th>
+    <th>Não lidas</th>
     <th>SLA vencido</th>
+    <th>Vence em breve</th>
     <th>Dentro do SLA</th>
     <th>Tempo medio</th>
     <th>Maior espera</th>
@@ -641,7 +670,9 @@ function slaSummaryTable(rows) {
       <td>${escapeHtml(row.account)}</td>
       <td>${row.conversations}</td>
       <td>${row.waiting_response}</td>
+      <td>${row.unread || 0}</td>
       <td>${row.overdue}</td>
+      <td>${row.due_soon || 0}</td>
       <td>${row.sla_ok}</td>
       <td>${escapeHtml(formatWait(Math.round(row.avg_wait_minutes || 0)))}</td>
       <td>${escapeHtml(formatWait(row.max_wait_minutes))}</td>
@@ -664,10 +695,12 @@ function renderSla() {
   const totals = rows.reduce((acc, row) => {
     acc.conversations += Number(row.conversations || 0);
     acc.waiting_response += Number(row.waiting_response || 0);
+    acc.unread += Number(row.unread || 0);
+    acc.due_soon += Number(row.due_soon || 0);
     acc.overdue += Number(row.overdue || 0);
     acc.sla_ok += Number(row.sla_ok || 0);
     return acc;
-  }, { conversations: 0, waiting_response: 0, overdue: 0, sla_ok: 0 });
+  }, { conversations: 0, waiting_response: 0, unread: 0, due_soon: 0, overdue: 0, sla_ok: 0 });
   const overdueRate = totals.waiting_response ? (totals.overdue / totals.waiting_response) * 100 : 0;
   const avgWait = critical.length
     ? Math.round(critical.reduce((sumValue, item) => sumValue + Number(item.wait_minutes || 0), 0) / critical.length)
@@ -677,10 +710,11 @@ function renderSla() {
   container.innerHTML = `${section('SLA de atendimento')}
     <div class="kpi-grid">
       ${singleKpi('Conversas no periodo', totals.conversations, 'entraram na caixa', 'blue')}
-      ${singleKpi('Sem resposta', totals.waiting_response, 'ultima mensagem recebida', totals.waiting_response ? 'orange' : 'green')}
-      ${singleKpi('SLA vencido', totals.overdue, `acima de ${data.sla_hours}h`, totals.overdue ? 'red' : 'green')}
-      ${singleKpi('Dentro do SLA', totals.sla_ok, 'aguardando dentro do limite', 'green')}
-      ${singleKpi('Tempo medio', formatWait(avgWait), 'conversas sem resposta', 'orange')}
+      ${singleKpi('SLA ativo', totals.waiting_response, 'timer vindo do GHL', totals.waiting_response ? 'orange' : 'green')}
+      ${singleKpi('Não lidas', totals.unread, 'unreadCount do GHL', totals.unread ? 'orange' : 'green')}
+      ${singleKpi('SLA vencido', totals.overdue, 'overdueAt já passou', totals.overdue ? 'red' : 'green')}
+      ${singleKpi('Vence em breve', totals.due_soon, 'proximos 30 min', totals.due_soon ? 'orange' : 'green')}
+      ${singleKpi('Tempo medio', formatWait(avgWait), 'desde slaStartAt', 'orange')}
       ${singleKpi('Taxa vencida', pct(overdueRate), 'vencidas / sem resposta', overdueRate ? 'red' : 'green')}
     </div>
     <br>
