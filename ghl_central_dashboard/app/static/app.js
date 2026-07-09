@@ -256,8 +256,6 @@ function kpi(title, value, subtitle = '', tone = 'blue') {
 const kpiDescriptions = {
   'Total leads': 'Conversas abertas na caixa Todos no periodo.',
   'Atendimentos': 'Pessoas em que a IA ou atendente respondeu.',
-  'Movimento na caixa': 'Conversas do periodo, incluindo contatos antigos.',
-  'Pessoas no WhatsApp': 'Pessoas unicas no WhatsApp, nao apenas leads novos.',
   'Vendas': 'Oportunidades marcadas como venda no periodo.',
   'Taxa atendimento': 'Percentual das conversas que receberam resposta.',
   'Canais identificados': 'Contatos com origem clara, como Google ou Instagram.',
@@ -416,10 +414,6 @@ function renderSummary(currentRows, previousRows) {
   const prevLeads = sum(previousRows, 'new_leads');
   const attends = sum(currentRows, 'attendances');
   const prevAttends = sum(previousRows, 'attendances');
-  const inboxConversations = sum(currentRows, 'inbox_conversations');
-  const prevInboxConversations = sum(previousRows, 'inbox_conversations');
-  const whatsapp = sum(currentRows, 'whatsapp_contacts');
-  const prevWhatsapp = sum(previousRows, 'whatsapp_contacts');
   const sales = sum(currentRows, 'sales');
   const prevSales = sum(previousRows, 'sales');
   const channel = sum(currentRows, 'new_leads_with_channel');
@@ -434,12 +428,11 @@ function renderSummary(currentRows, previousRows) {
     <div class="kpi-grid">
       ${compareKpi('Total leads', leads, prevLeads, 'conversas', 'blue', labels)}
       ${compareKpi('Atendimentos', attends, prevAttends, '', 'green', labels)}
-      ${compareKpi('Pessoas no WhatsApp', whatsapp, prevWhatsapp, 'pessoas', 'green', labels)}
       ${compareKpi('Vendas', sales, prevSales, '', 'orange', labels)}
       ${singleKpi('Canais identificados', pct(leads ? (channel / leads) * 100 : 0), `${channel} leads`, 'blue')}
     </div>
     <div class="kpi-note">
-      Total leads mede as conversas abertas na aba Todos. Atendimentos mede pessoas em que IA ou atendente respondeu. WhatsApp mede pessoas unicas com mensagem recebida no periodo.
+      Total leads mede as conversas abertas na aba Todos. Atendimentos mede pessoas em que IA ou atendente respondeu.
     </div>
     <br>
     ${renderHighlights()}
