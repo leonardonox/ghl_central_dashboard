@@ -422,28 +422,11 @@ function renderSummary(currentRows, previousRows) {
       ${compareKpi('Vendas', sales, prevSales, '', 'orange', labels)}
       ${singleKpi('Taxa atendimento', pct(leads ? (attends / leads) * 100 : 0), 'atendimentos / leads', 'orange')}
       ${singleKpi('Canais identificados', pct(leads ? (channel / leads) * 100 : 0), `${channel} leads`, 'blue')}
-      ${singleKpi('Saúde média', `${Math.round(sum(currentRows, 'health_score') / Math.max(currentRows.length, 1))}/100`, 'score operacional', 'green')}
     </div>
     <br>
     ${renderHighlights()}
-    <br>
-    <div class="executive-summary">
-      <strong>Resumo para envio</strong>
-      <p>${state.current.executive_summary}</p>
-      <button id="copy-summary" class="secondary" type="button">Copiar resumo</button>
-    </div>
-    <br>
-    <div class="diagnosis">${state.current.diagnosis}</div>
-    <div class="grid-2" style="margin-top:14px">
-      <article class="card chart-card"><h3>Evolução diária de leads</h3>${svgLine(filterRows(state.current.daily_by_account))}</article>
-      <article class="card chart-card"><h3>Conversas por dia</h3>${svgLine(filterRows(state.current.daily_conversations_by_account), 'conversations')}</article>
-      <article class="card chart-card"><h3>Ranking rápido</h3>${bars([...currentRows].sort((a, b) => b[state.rankingMetric] - a[state.rankingMetric]), state.rankingMetric, 'green')}</article>
-    </div>
+    ${renderExecutiveBoard(currentRows)}
   `;
-  $('copy-summary').addEventListener('click', async () => {
-    await navigator.clipboard.writeText(state.current.executive_summary);
-    showStatus('Resumo executivo copiado.');
-  });
 }
 
 function renderHighlights() {
@@ -451,19 +434,148 @@ function renderHighlights() {
   return `<div class="highlight-grid">
     ${miniHighlight('Mais leads', highlights.most_leads, 'new_leads', 'blue')}
     ${miniHighlight('Mais conversas', highlights.most_inbox_conversations, 'inbox_conversations', 'blue')}
-    ${miniHighlight('Mais WhatsApp', highlights.most_whatsapp, 'whatsapp_contacts', 'green')}
     ${miniHighlight('Maior alta', highlights.biggest_growth, 'lead_delta', 'green', ' leads')}
     ${miniHighlight('Maior queda', highlights.biggest_drop, 'lead_delta', 'red', ' leads')}
-    ${miniHighlight('Melhor atendimento', highlights.best_attendance_rate, 'attendance_rate', 'orange')}
-    ${miniHighlight('Menos leads', highlights.least_leads, 'new_leads', 'red')}
   </div>`;
 }
 
+function ratio(value, total) {
+  if (!total) return 0;
+  return Math.max(0, Math.min(100, (Number(value || 0) / Number(total || 0)) * 100));
+}
+
+function signed(value) {
+  const number = Number(value || 0);
+  return `${number >= 0 ? '+' : ''}${number}`;
+}
+
+function compactDate(value) {
+  const date = parseLocalDate(value);
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function dailyRowsFor(accountName) {
+  const leads = filterRows(state.current.daily_by_account).filter((item) => item.account === accountName);
+  const conversations = filterRows(state.current.daily_conversations_by_account).filter((item) => item.account === accountName);
+  const conversationsByDate = new Map(conversations.map((item) => [item.date, Number(item.conversations || 0)]));
+  return leads.map((item) => ({
+    date: item.date,
+    leads: Number(item.leads || 0),
+    conversations: conversationsByDate.get(item.date) || 0,
+  }));
+}
+
+function renderMiniBars(items, key) {
+  if (!items.length) return '<div class="ops-empty">Sem dados diarios</div>';
+  const max = Math.max(...items.map((item) => Number(item[key] || 0)), 1);
+  return `<div class="ops-mini-bars">
+    ${items.map((item) => {
+      const value = Number(item[key] || 0);
+      const height = Math.max(8, Math.round((value / max) * 58));
+      return `<span style="--bar:${height}px" title="${compactDate(item.date)}: ${value}">
+        <i>${value}</i>
+        <em>${compactDate(item.date)}</em>
+      </span>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderGauge(label, percent, valueLabel) {
+  const safePercent = Math.max(0, Math.min(100, Number(percent || 0)));
+  return `<div class="ops-gauge" style="--pct:${safePercent}">
+    <div class="ops-gauge-arc"></div>
+    <strong>${valueLabel || pct(safePercent)}</strong>
+    <span>${label}</span>
+  </div>`;
+}
+
+function renderExecutiveBoard(rows) {
+  const ordered = [...rows].sort((a, b) => Number(b.new_leads || 0) - Number(a.new_leads || 0));
+  if (!ordered.length) return '<div class="empty-state"><strong>Nenhuma revista selecionada.</strong></div>';
+
+  const maxLeads = Math.max(...ordered.map((row) => Number(row.new_leads || 0)), 1);
+  return `<section class="ops-board">
+    <header class="ops-board-title">
+      <span>Performance operacional</span>
+      <strong>Leads, conversas e conversao por revista</strong>
+    </header>
+    <div class="ops-columns">
+      ${ordered.map((row) => {
+        const daily = dailyRowsFor(row.account);
+        const leadShare = ratio(row.new_leads, maxLeads);
+        const leadDelta = Number(row.new_leads || 0) - Number(row.previous_new_leads || 0);
+        const tone = leadDelta >= 0 ? 'good' : 'bad';
+        return `<article class="ops-column">
+          <header class="ops-column-head">
+            <strong>${escapeHtml(row.account)}</strong>
+            <span>${escapeHtml(row.best_channel || 'Sem canal')}</span>
+          </header>
+          <section class="ops-current">
+            <div>
+              <span>Leads no periodo</span>
+              <strong>${row.new_leads || 0}</strong>
+            </div>
+            <em class="${tone}">${signed(leadDelta)}</em>
+          </section>
+          <div class="ops-progress"><span style="width:${leadShare}%"></span></div>
+          <section class="ops-gauge-row">
+            ${renderGauge('Atendimento', row.attendance_rate, pct(row.attendance_rate))}
+            ${renderGauge('Canal identificado', row.channel_identified_rate, pct(row.channel_identified_rate))}
+          </section>
+          <section class="ops-history">
+            <strong>Historico diario</strong>
+            ${renderMiniBars(daily, 'leads')}
+          </section>
+          <footer class="ops-foot">
+            <span><strong>${row.inbox_conversations || 0}</strong> conversas</span>
+            <span><strong>${row.whatsapp_contacts || 0}</strong> WhatsApp</span>
+            <span><strong>${row.sales || 0}</strong> vendas</span>
+          </footer>
+        </article>`;
+      }).join('')}
+    </div>
+  </section>`;
+}
+
+function renderDailyOperations(rows) {
+  const ordered = [...rows].sort((a, b) => Number(b.new_leads || 0) - Number(a.new_leads || 0));
+  if (!ordered.length) return '<div class="empty-state"><strong>Nenhuma revista selecionada.</strong></div>';
+
+  const allDaily = ordered.flatMap((row) => dailyRowsFor(row.account));
+  const maxDaily = Math.max(...allDaily.map((item) => Math.max(item.leads, item.conversations)), 1);
+  return `<section class="ops-day-board">
+    <header class="ops-board-title">
+      <span>Controle diario</span>
+      <strong>Entrada de leads e conversas por dia</strong>
+    </header>
+    <div class="ops-day-grid">
+      ${ordered.map((row) => {
+        const daily = dailyRowsFor(row.account);
+        return `<article class="ops-day-card">
+          <header>
+            <strong>${escapeHtml(row.account)}</strong>
+            <span>${row.new_leads || 0} leads no periodo</span>
+          </header>
+          <div class="ops-day-table">
+            ${daily.map((item) => {
+              const leadHeat = (item.leads / maxDaily).toFixed(2);
+              const conversationHeat = (item.conversations / maxDaily).toFixed(2);
+              return `<div class="ops-day-row">
+                <span>${compactDate(item.date)}</span>
+                <strong style="--heat:${leadHeat}">${item.leads}</strong>
+                <em style="--heat:${conversationHeat}">${item.conversations}</em>
+              </div>`;
+            }).join('') || '<div class="ops-empty">Sem dados diarios</div>'}
+          </div>
+          <footer><span>Leads</span><span>Conversas</span></footer>
+        </article>`;
+      }).join('')}
+    </div>
+  </section>`;
+}
+
 function renderDay() {
-  $('dia').innerHTML = `${section('Por dia')}`
-    + `<div class="grid-2"><article class="card chart-card"><h3>Leads por dia</h3>${svgLine(filterRows(state.current.daily_by_account))}</article>`
-    + `<article class="card chart-card"><h3>Conversas que entraram por dia</h3>${svgLine(filterRows(state.current.daily_conversations_by_account), 'conversations')}</article></div><br>`
-    + `<article class="card chart-card"><h3>Heatmap por dia da semana</h3>${weekdayHeatmap(filterRows(state.current.weekday_heatmap))}</article>`;
+  $('dia').innerHTML = `${section('Por dia')}${renderDailyOperations(filterRows(state.current.rows))}`;
 }
 
 function weekdayHeatmap(rows) {
@@ -1033,7 +1145,7 @@ $('clear-filters').addEventListener('click', () => {
 $('sync-btn').addEventListener('click', async () => {
   try {
     showStatus('Sincronizando dados do GHL...');
-    const result = await api('/sync/run?days_back=365', { method: 'POST' });
+    const result = await api('/sync/run?days_back=3650', { method: 'POST' });
     if (result.errors?.length) {
       const errors = result.errors.map((item) => `${item.account || 'GHL'}: ${item.error}`).join(' | ');
       showStatus(`Sincronizacao concluida com erros. ${errors}`);
@@ -1043,7 +1155,8 @@ $('sync-btn').addEventListener('click', async () => {
       `Sincronizado: ${result.accounts} revistas, `
       + `${result.leads_inserted_or_updated} leads, `
       + `${result.opportunities_inserted_or_updated} oportunidades, `
-      + `${result.conversations_inserted_or_updated} conversas.`
+      + `${result.conversations_inserted_or_updated} conversas, `
+      + `${result.snapshots_created_or_updated || 0} dias consolidados.`
     );
     await loadDashboard();
   } catch (error) {

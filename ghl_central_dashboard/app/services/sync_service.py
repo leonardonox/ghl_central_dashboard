@@ -1,6 +1,7 @@
 import unicodedata
 import logging
 from datetime import datetime, timedelta
+from urllib.parse import parse_qs, urlparse
 
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -12,6 +13,7 @@ from app.models.conversation import Conversation
 from app.models.lead import Lead
 from app.models.opportunity import Opportunity
 from app.repositories.account_repository import AccountRepository
+from app.services.metrics_service import MetricsService
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +29,11 @@ class GHLSyncService:
             'leads_inserted_or_updated': 0,
             'opportunities_inserted_or_updated': 0,
             'conversations_inserted_or_updated': 0,
+            'snapshots_created_or_updated': 0,
             'account_results': [],
             'errors': [],
         }
+        start_date = datetime.utcnow() - timedelta(days=days_back)
         for account in self.accounts.list_active():
             account_result = {
                 'account_id': account.id,
@@ -42,7 +46,6 @@ class GHLSyncService:
             try:
                 token = decrypt_token(account.api_token_encrypted)
                 client = GHLClient(token)
-                start_date = datetime.utcnow() - timedelta(days=days_back)
 
                 leads = await self._fetch_contacts(client, account.location_id, start_date)
                 account_result['leads'] = self._upsert_leads(account.id, leads)
@@ -67,11 +70,46 @@ class GHLSyncService:
 
         if not result['account_results']:
             result['errors'].append({'account': None, 'error': 'Nenhuma revista ativa cadastrada.'})
+        elif result['accounts']:
+            snapshots = MetricsService(self.db).build_daily_snapshots(start_date.date(), datetime.utcnow().date())
+            result['snapshots_created_or_updated'] = snapshots['snapshots_created_or_updated']
         return result
+
+    def _advance_pagination(self, params: dict, meta: dict, seen_cursors: set[tuple[str, str]]) -> bool:
+        start_after = meta.get('startAfter')
+        start_after_id = meta.get('startAfterId')
+        if start_after and start_after_id:
+            cursor = (str(start_after), str(start_after_id))
+            if cursor in seen_cursors:
+                return False
+            seen_cursors.add(cursor)
+            params['startAfter'] = start_after
+            params['startAfterId'] = start_after_id
+            return True
+
+        next_page_url = meta.get('nextPageUrl') or meta.get('nextPage')
+        if not next_page_url:
+            return False
+
+        parsed = urlparse(str(next_page_url))
+        query = parse_qs(parsed.query)
+        next_start_after = query.get('startAfter', [None])[0]
+        next_start_after_id = query.get('startAfterId', [None])[0]
+        if not next_start_after or not next_start_after_id:
+            return False
+
+        cursor = (str(next_start_after), str(next_start_after_id))
+        if cursor in seen_cursors:
+            return False
+        seen_cursors.add(cursor)
+        params['startAfter'] = next_start_after
+        params['startAfterId'] = next_start_after_id
+        return True
 
     async def _fetch_contacts(self, client: GHLClient, location_id: str, start_date: datetime) -> list[dict]:
         contacts: list[dict] = []
         params = {'locationId': location_id, 'limit': 100}
+        seen_cursors: set[tuple[str, str]] = set()
 
         while True:
             data = await client.get('/contacts/', params=params)
@@ -84,16 +122,9 @@ class GHLSyncService:
             if not page_contacts:
                 break
 
-            oldest_in_page = min(
-                self._parse_date(item.get('dateAdded') or item.get('createdAt'))
-                for item in page_contacts
-            )
             meta = data.get('meta') or {}
-            if oldest_in_page < start_date or not meta.get('startAfter') or not meta.get('startAfterId'):
+            if not self._advance_pagination(params, meta, seen_cursors):
                 break
-
-            params['startAfter'] = meta['startAfter']
-            params['startAfterId'] = meta['startAfterId']
 
         return contacts
 
@@ -129,6 +160,7 @@ class GHLSyncService:
         opportunities: list[dict] = []
         params = {'location_id': location_id, 'limit': 100}
         pipeline_stages = pipeline_stages or {}
+        seen_cursors: set[tuple[str, str]] = set()
 
         while True:
             data = await client.get('/opportunities/search', params=params)
@@ -148,22 +180,16 @@ class GHLSyncService:
             if not page_opportunities:
                 break
 
-            oldest_in_page = min(
-                self._parse_date(item.get('createdAt') or item.get('dateAdded'))
-                for item in page_opportunities
-            )
             meta = data.get('meta') or {}
-            if oldest_in_page < start_date or not meta.get('startAfter') or not meta.get('startAfterId'):
+            if not self._advance_pagination(params, meta, seen_cursors):
                 break
-
-            params['startAfter'] = meta['startAfter']
-            params['startAfterId'] = meta['startAfterId']
 
         return opportunities
 
     async def _fetch_conversations(self, client: GHLClient, location_id: str) -> list[dict]:
         conversations: list[dict] = []
         params = {'locationId': location_id, 'limit': 100}
+        seen_cursors: set[tuple[str, str]] = set()
 
         while True:
             data = await client.get('/conversations/search', params=params)
@@ -174,11 +200,8 @@ class GHLSyncService:
                 break
 
             meta = data.get('meta') or {}
-            if not meta.get('startAfter') or not meta.get('startAfterId'):
+            if not self._advance_pagination(params, meta, seen_cursors):
                 break
-
-            params['startAfter'] = meta['startAfter']
-            params['startAfterId'] = meta['startAfterId']
 
         return conversations
 

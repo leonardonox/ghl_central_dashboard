@@ -512,22 +512,24 @@ class MetricsService:
 
     def _inbox_conversations_for_account(self, account_id: int, start_date: date, end_date: date) -> int:
         start, end = self._period_range(start_date, end_date)
-        conversations = list(self.db.scalars(
-            select(Conversation).where(
+        entry_date = func.coalesce(Conversation.last_message_date, Conversation.last_inbound_whatsapp_message_date)
+        stmt = (
+            select(func.count(Conversation.id)).where(
                 Conversation.account_id == account_id,
+                entry_date >= start,
+                entry_date < end,
             )
-        ))
-        return sum(
-            1
-            for item in conversations
-            if (entry_date := self._conversation_entry_date(item)) and entry_date >= start and entry_date < end
         )
+        return int(self.db.scalar(stmt) or 0)
 
     def _daily_inbox_conversations(self, account_id: int, start_date: date, end_date: date) -> list[dict]:
         start, end = self._period_range(start_date, end_date)
+        entry_date = func.coalesce(Conversation.last_message_date, Conversation.last_inbound_whatsapp_message_date)
         conversations = list(self.db.scalars(
             select(Conversation).where(
                 Conversation.account_id == account_id,
+                entry_date >= start,
+                entry_date < end,
             )
         ))
         daily = Counter()
@@ -546,6 +548,10 @@ class MetricsService:
         ]
 
     def _rows_for_period(self, start_date: date, end_date: date) -> list[dict]:
+        snapshot_rows = self._snapshot_rows_for_period(start_date, end_date)
+        if snapshot_rows is not None:
+            return snapshot_rows
+
         accounts = list(self.db.scalars(
             select(GHLAccount).where(GHLAccount.active.is_(True)).order_by(GHLAccount.name)
         ))
@@ -556,6 +562,84 @@ class MetricsService:
             summary['sales_rate'] = self._percent(summary['sales'], summary['new_leads'])
             summary['channel_identified_rate'] = self._percent(summary['new_leads_with_channel'], summary['new_leads'])
             rows.append(summary)
+        return rows
+
+    def _snapshot_rows_for_period(self, start_date: date, end_date: date) -> list[dict] | None:
+        accounts = list(self.db.scalars(
+            select(GHLAccount).where(GHLAccount.active.is_(True)).order_by(GHLAccount.name)
+        ))
+        if not accounts:
+            return []
+
+        days = (end_date - start_date).days + 1
+        snapshots = list(self.db.scalars(
+            select(DailySnapshot).where(
+                DailySnapshot.snapshot_date >= start_date,
+                DailySnapshot.snapshot_date <= end_date,
+                DailySnapshot.account_id.in_([account.id for account in accounts]),
+            )
+        ))
+        if len(snapshots) < len(accounts) * days:
+            return None
+
+        by_account: dict[int, list[DailySnapshot]] = {account.id: [] for account in accounts}
+        for snapshot in snapshots:
+            by_account.setdefault(snapshot.account_id, []).append(snapshot)
+
+        rows = []
+        for account in accounts:
+            account_snapshots = sorted(by_account.get(account.id, []), key=lambda item: item.snapshot_date)
+            covered_dates = {item.snapshot_date for item in account_snapshots}
+            if len(covered_dates) < days:
+                return None
+
+            channel_totals = Counter()
+            for snapshot in account_snapshots:
+                for item in snapshot.lead_channels or []:
+                    channel = item.get('channel')
+                    if channel:
+                        channel_totals[channel] += int(item.get('count') or 0)
+
+            daily_new_leads = [
+                {
+                    'date': snapshot.snapshot_date.isoformat(),
+                    'leads': int(snapshot.new_leads or 0),
+                }
+                for snapshot in account_snapshots
+            ]
+            daily_inbox_conversations = [
+                {
+                    'date': snapshot.snapshot_date.isoformat(),
+                    'conversations': int(snapshot.inbox_conversations or 0),
+                }
+                for snapshot in account_snapshots
+            ]
+            lead_channels = [{'channel': channel, 'count': int(channel_totals[channel])} for channel in CHANNELS]
+            best_channel = max(channel_totals.items(), key=lambda item: item[1])[0] if any(channel_totals.values()) else '-'
+            new_leads = sum(int(item.new_leads or 0) for item in account_snapshots)
+            new_leads_with_channel = sum(int(item.new_leads_with_channel or 0) for item in account_snapshots)
+            attendances = sum(int(item.attendances or 0) for item in account_snapshots)
+            sales = sum(int(item.sales or 0) for item in account_snapshots)
+            rows.append({
+                'account_id': account.id,
+                'account': account.name,
+                'new_leads': new_leads,
+                'new_leads_with_channel': new_leads_with_channel,
+                'attendances': attendances,
+                'whatsapp_contacts': sum(int(item.whatsapp_contacts or 0) for item in account_snapshots),
+                'inbox_conversations': sum(int(item.inbox_conversations or 0) for item in account_snapshots),
+                'sales': sales,
+                'hsm_leads': sum(int(item.hsm_leads or 0) for item in account_snapshots),
+                'hsm_sales': 0,
+                'lead_channels': lead_channels,
+                'daily_new_leads': daily_new_leads,
+                'daily_inbox_conversations': daily_inbox_conversations,
+                'best_channel': best_channel,
+                'attendance_rate': self._percent(attendances, new_leads),
+                'sales_rate': self._percent(sales, new_leads),
+                'channel_identified_rate': self._percent(new_leads_with_channel, new_leads),
+            })
+
         return rows
 
     def _rankings(self, rows: list[dict]) -> dict:
@@ -879,6 +963,9 @@ class MetricsService:
                     'attendances': attendances,
                     'sales': totals['sales'],
                     'hsm_leads': totals['hsm_leads'],
+                    'whatsapp_contacts': totals['whatsapp_contacts'],
+                    'inbox_conversations': totals['inbox_conversations'],
+                    'lead_channels': performance['lead_channels'],
                     'attendance_rate': self._percent(attendances, totals['new_leads']),
                     'sales_rate': self._percent(totals['sales'], totals['new_leads']),
                     'channel_identified_rate': self._percent(totals['new_leads_with_channel'], totals['new_leads']),
@@ -921,6 +1008,9 @@ class MetricsService:
                 'attendances': row.attendances,
                 'sales': row.sales,
                 'hsm_leads': row.hsm_leads,
+                'whatsapp_contacts': row.whatsapp_contacts,
+                'inbox_conversations': row.inbox_conversations,
+                'lead_channels': row.lead_channels or [],
                 'attendance_rate': float(row.attendance_rate),
                 'sales_rate': float(row.sales_rate),
                 'channel_identified_rate': float(row.channel_identified_rate),

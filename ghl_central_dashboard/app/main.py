@@ -8,7 +8,7 @@ from pathlib import Path
 
 from app.api.routes import accounts, auth, dashboard, deploy, sync
 from app.core.config import get_settings
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import Base, SessionLocal, engine, ensure_runtime_schema
 from app.core.logging import configure_logging
 from app.models import Conversation, DailySnapshot, GHLAccount, Lead, Opportunity  # noqa: F401
 from app.services.sync_service import GHLSyncService
@@ -45,6 +45,7 @@ async def _auto_sync_loop() -> None:
 @app.on_event('startup')
 async def start_auto_sync() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_runtime_schema()
     app.state.auto_sync_task = asyncio.create_task(_auto_sync_loop())
 
 

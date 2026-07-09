@@ -273,7 +273,7 @@ st.markdown(
 
 API_URL = st.sidebar.text_input('API URL', value=API_DEFAULT)
 st.sidebar.header('Atualizacao')
-sync_days = st.sidebar.number_input('Dias para sincronizar', min_value=1, max_value=90, value=30, step=1)
+sync_days = st.sidebar.number_input('Dias para sincronizar', min_value=1, max_value=3650, value=3650, step=1)
 if st.sidebar.button('Atualizar dados do GHL', use_container_width=True):
     with st.spinner('Sincronizando dados...'):
         response = requests.post(f'{API_URL.rstrip("/")}/sync/run', params={'days_back': sync_days}, timeout=300)

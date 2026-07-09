@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, JSON, Numeric, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -19,6 +19,9 @@ class DailySnapshot(Base):
     attendances: Mapped[int] = mapped_column(Integer, default=0)
     sales: Mapped[int] = mapped_column(Integer, default=0)
     hsm_leads: Mapped[int] = mapped_column(Integer, default=0)
+    whatsapp_contacts: Mapped[int] = mapped_column(Integer, default=0)
+    inbox_conversations: Mapped[int] = mapped_column(Integer, default=0)
+    lead_channels: Mapped[list[dict] | None] = mapped_column(JSON)
     attendance_rate: Mapped[float] = mapped_column(Numeric(8, 2), default=0)
     sales_rate: Mapped[float] = mapped_column(Numeric(8, 2), default=0)
     channel_identified_rate: Mapped[float] = mapped_column(Numeric(8, 2), default=0)
