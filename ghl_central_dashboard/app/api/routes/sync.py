@@ -15,6 +15,7 @@ from app.repositories.account_repository import AccountRepository
 from app.services.sync_service import GHLSyncService
 
 router = APIRouter(prefix='/sync', tags=['sync'])
+MAX_SYNC_DAYS = 90
 
 sync_state = {
     'running': False,
@@ -27,6 +28,7 @@ sync_state = {
 
 
 async def _run_background_sync(days_back: int) -> None:
+    days_back = max(1, min(days_back, MAX_SYNC_DAYS))
     sync_state.update({
         'running': True,
         'started_at': datetime.utcnow().isoformat(),
@@ -48,11 +50,13 @@ async def _run_background_sync(days_back: int) -> None:
 
 @router.post('/run')
 async def run_sync(days_back: int = 7, db: Session = Depends(get_db)):
+    days_back = max(1, min(days_back, MAX_SYNC_DAYS))
     return await GHLSyncService(db).sync_all(days_back=days_back)
 
 
 @router.post('/start')
 async def start_sync(days_back: int = 7):
+    days_back = max(1, min(days_back, MAX_SYNC_DAYS))
     if sync_state['running']:
         return {'status': 'running', **sync_state}
     asyncio.create_task(_run_background_sync(days_back))

@@ -1328,7 +1328,7 @@ function startSyncPolling(label) {
 }
 
 $('sync-btn').addEventListener('click', () => runSync(7, 'ultimos 7 dias'));
-$('sync-full-btn').addEventListener('click', () => runSync(3650, 'historico completo'));
+$('sync-full-btn').addEventListener('click', () => runSync(90, 'ultimos 90 dias'));
 
 $('pdf-btn').addEventListener('click', () => {
   window.print();
