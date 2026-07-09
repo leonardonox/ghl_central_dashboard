@@ -1002,6 +1002,27 @@ async function renderEditorialSupport() {
   }
 }
 
+function splitBulkLine(line) {
+  if (line.includes('\t')) return line.split('\t');
+  if (line.includes(';')) return line.split(';');
+  return line.split(',');
+}
+
+function parseBulkAccounts(value) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map(splitBulkLine)
+    .map((columns) => columns.map((column) => column.trim()).filter(Boolean))
+    .filter((columns) => {
+      const joined = columns.join(' ').toLowerCase();
+      return columns.length >= 3 && !(joined.includes('revista') && joined.includes('api') && joined.includes('location'));
+    })
+    .map(([name, apiToken, locationId]) => ({ name, apiToken, locationId }))
+    .filter((row) => row.name && row.apiToken && row.locationId);
+}
+
 async function renderConfig() {
   const accounts = await api('/accounts/all');
   $('configuracoes').innerHTML = `${section('Configurações das revistas')}
@@ -1022,6 +1043,16 @@ async function renderConfig() {
         <label><span>Location ID</span><input id="new-account-location" placeholder="ID ou URL da location" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" /></label>
         <label><span>Token PIT</span><input id="new-account-token" placeholder="Token da integração privada" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" /></label>
         <button id="create-account">Adicionar</button>
+      </div>
+    </div>
+    <br>
+    <div class="card config-card">
+      <h3>Adicionar várias revistas</h3>
+      <p class="bulk-help">Cole direto da planilha na ordem: Revista | API | Location ID. Pode manter a linha de cabeçalho.</p>
+      <textarea id="bulk-accounts" class="bulk-textarea" placeholder="REVISTA&#9;API&#9;Location ID&#10;Revista Exemplo&#9;pit-xxxx&#9;location123"></textarea>
+      <div class="bulk-actions">
+        <button id="bulk-create-accounts" type="button">Adicionar em massa</button>
+        <span id="bulk-import-status" class="deploy-hint"></span>
       </div>
     </div>
     <br>
@@ -1069,6 +1100,45 @@ async function renderConfig() {
       }),
     });
     await refreshAccounts();
+  });
+
+  $('bulk-create-accounts').addEventListener('click', async () => {
+    const rows = parseBulkAccounts($('bulk-accounts').value);
+    if (!rows.length) {
+      $('bulk-import-status').textContent = 'Cole pelo menos uma linha com Revista, API e Location ID.';
+      return;
+    }
+
+    $('bulk-create-accounts').disabled = true;
+    $('bulk-import-status').textContent = `Importando ${rows.length} revistas...`;
+    const errors = [];
+    let created = 0;
+
+    for (const row of rows) {
+      try {
+        await api('/accounts', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: row.name,
+            location_id: row.locationId,
+            api_token: row.apiToken,
+          }),
+        });
+        created += 1;
+      } catch (error) {
+        errors.push(`${row.name}: ${error.message}`);
+      }
+    }
+
+    $('bulk-create-accounts').disabled = false;
+    $('bulk-import-status').textContent = errors.length
+      ? `Criadas ${created}. Erros: ${errors.slice(0, 3).join(' | ')}`
+      : `Criadas ${created} revistas com sucesso.`;
+
+    if (created) {
+      $('bulk-accounts').value = '';
+      await refreshAccounts();
+    }
   });
 
   document.querySelectorAll('.save-account').forEach((button) => {
