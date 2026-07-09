@@ -254,8 +254,8 @@ function kpi(title, value, subtitle = '', tone = 'blue') {
 const kpiDescriptions = {
   'Total leads': 'Novos leads recebidos no periodo selecionado.',
   'Atendimentos': 'Leads que chegaram em atendimento no CRM.',
-  'Conversas na caixa': 'Conversas que entraram na caixa do CRM.',
-  'Contatos no WhatsApp': 'Pessoas unicas que falaram pelo WhatsApp.',
+  'Movimento na caixa': 'Conversas do periodo, incluindo contatos antigos.',
+  'Pessoas no WhatsApp': 'Pessoas unicas no WhatsApp, nao apenas leads novos.',
   'Vendas': 'Oportunidades marcadas como venda no periodo.',
   'Taxa atendimento': 'Percentual de leads que viraram atendimento.',
   'Canais identificados': 'Leads com origem clara, como Google ou Instagram.',
@@ -432,10 +432,13 @@ function renderSummary(currentRows, previousRows) {
     <div class="kpi-grid">
       ${compareKpi('Total leads', leads, prevLeads, 'leads', 'blue', labels)}
       ${compareKpi('Atendimentos', attends, prevAttends, '', 'green', labels)}
-      ${compareKpi('Conversas na caixa', inboxConversations, prevInboxConversations, 'conversas', 'blue', labels)}
-      ${compareKpi('Contatos no WhatsApp', whatsapp, prevWhatsapp, 'pessoas', 'green', labels)}
+      ${compareKpi('Movimento na caixa', inboxConversations, prevInboxConversations, 'conversas', 'blue', labels)}
+      ${compareKpi('Pessoas no WhatsApp', whatsapp, prevWhatsapp, 'pessoas', 'green', labels)}
       ${compareKpi('Vendas', sales, prevSales, '', 'orange', labels)}
       ${singleKpi('Canais identificados', pct(leads ? (channel / leads) * 100 : 0), `${channel} leads`, 'blue')}
+    </div>
+    <div class="kpi-note">
+      Leads e atendimentos medem entrada de oportunidades novas. Movimento na caixa e WhatsApp medem atividade de conversas no periodo e podem incluir contatos antigos.
     </div>
     <br>
     ${renderHighlights()}

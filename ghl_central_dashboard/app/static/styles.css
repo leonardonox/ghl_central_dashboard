@@ -470,6 +470,19 @@ button:hover { filter: brightness(0.96); }
   line-height: 1.35;
 }
 
+.kpi-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #d8e8e2;
+  border-left: 4px solid var(--gold-dark);
+  border-radius: 7px;
+  color: #52655f;
+  background: #fffdf4;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
 .compare-main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
