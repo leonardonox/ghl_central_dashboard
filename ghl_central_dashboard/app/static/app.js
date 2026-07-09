@@ -255,7 +255,7 @@ function kpi(title, value, subtitle = '', tone = 'blue') {
 
 const kpiDescriptions = {
   'Total leads': 'Novos leads recebidos no periodo selecionado.',
-  'Atendimentos': 'Leads que chegaram em atendimento no CRM.',
+  'Atendimentos': 'Leads novos com tag de atendimento no CRM.',
   'Movimento na caixa': 'Conversas do periodo, incluindo contatos antigos.',
   'Pessoas no WhatsApp': 'Pessoas unicas no WhatsApp, nao apenas leads novos.',
   'Vendas': 'Oportunidades marcadas como venda no periodo.',
@@ -440,7 +440,7 @@ function renderSummary(currentRows, previousRows) {
       ${singleKpi('Canais identificados', pct(leads ? (channel / leads) * 100 : 0), `${channel} leads`, 'blue')}
     </div>
     <div class="kpi-note">
-      Leads e atendimentos medem entrada de oportunidades novas. Movimento na caixa e WhatsApp medem atividade de conversas no periodo e podem incluir contatos antigos.
+      Leads medem contatos novos. Atendimentos medem leads novos com tag de atendimento. Movimento na caixa e WhatsApp medem atividade de conversas no periodo e podem incluir contatos antigos.
     </div>
     <br>
     ${renderHighlights()}
@@ -938,7 +938,7 @@ function renderAlerts() {
     <div class="diagnosis">${state.current.diagnosis}</div><br>
     <div class="diagnosis">
       <strong>Base de conferencia</strong><br>
-      Leads: oportunidades criadas no GHL. WhatsApp: pessoas unicas com mensagem recebida no periodo. Atendimentos: tag de atendimento nas oportunidades.
+      Leads: contatos novos no GHL. WhatsApp: pessoas unicas com mensagem recebida no periodo. Atendimentos: leads novos com tag de atendimento.
     </div><br>`
     + (alerts.length ? `<div class="alert-list">${alerts.map((alert) => `<div class="alert"><strong>${alert.account}</strong><br>${alert.message}</div>`).join('')}</div>` : '<div class="diagnosis">Nenhum alerta encontrado.</div>');
 }

@@ -250,7 +250,7 @@ class MetricsService:
             'triagem_finalizada': sum(
                 1 for item in opportunities if self._has_tag(self._tags_from_opportunity(item), 'triagem ia finalizada')
             ),
-            'em_atendimento': sum(1 for item in opportunities if self._has_attendance(self._tags_from_opportunity(item))),
+            'em_atendimento': sum(1 for item in leads if self._has_attendance(self._tags_from_lead(item))),
             'hsm_enviado': sum(1 for item in opportunities if self._has_hsm(self._tags_from_opportunity(item))),
             'oportunidade_criada': len(opportunity_contact_ids),
             'venda_realizada': len(sales_contact_ids),
@@ -312,14 +312,14 @@ class MetricsService:
 
     def _attendances_for_account(self, account_id: int, start_date: date, end_date: date) -> int:
         start, end = self._period_range(start_date, end_date)
-        opportunities = list(self.db.scalars(
-            select(Opportunity).where(
-                Opportunity.account_id == account_id,
-                Opportunity.ghl_created_at >= start,
-                Opportunity.ghl_created_at < end,
+        leads = list(self.db.scalars(
+            select(Lead).where(
+                Lead.account_id == account_id,
+                Lead.ghl_created_at >= start,
+                Lead.ghl_created_at < end,
             )
         ))
-        return sum(1 for item in opportunities if self._has_attendance(self._tags_from_opportunity(item)))
+        return sum(1 for item in leads if self._has_attendance(self._tags_from_lead(item)))
 
     def _whatsapp_contacts_for_account(self, account_id: int, start_date: date, end_date: date) -> int:
         start, end = self._period_range(start_date, end_date)
@@ -607,7 +607,7 @@ class MetricsService:
                 DailySnapshot.snapshot_date >= start_date,
                 DailySnapshot.snapshot_date <= end_date,
                 DailySnapshot.account_id.in_([account.id for account in accounts]),
-                DailySnapshot.metric_version == 2,
+                DailySnapshot.metric_version == 3,
             )
         ))
         if len(snapshots) < len(accounts) * days:
@@ -997,7 +997,7 @@ class MetricsService:
                     'whatsapp_contacts': totals['whatsapp_contacts'],
                     'inbox_conversations': totals['inbox_conversations'],
                     'lead_channels': performance['lead_channels'],
-                    'metric_version': 2,
+                    'metric_version': 3,
                     'attendance_rate': self._percent(attendances, totals['new_leads']),
                     'sales_rate': self._percent(totals['sales'], totals['new_leads']),
                     'channel_identified_rate': self._percent(totals['new_leads_with_channel'], totals['new_leads']),

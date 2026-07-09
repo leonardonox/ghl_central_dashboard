@@ -22,7 +22,7 @@ class DailySnapshot(Base):
     whatsapp_contacts: Mapped[int] = mapped_column(Integer, default=0)
     inbox_conversations: Mapped[int] = mapped_column(Integer, default=0)
     lead_channels: Mapped[list[dict] | None] = mapped_column(JSON)
-    metric_version: Mapped[int] = mapped_column(Integer, default=2)
+    metric_version: Mapped[int] = mapped_column(Integer, default=3)
     attendance_rate: Mapped[float] = mapped_column(Numeric(8, 2), default=0)
     sales_rate: Mapped[float] = mapped_column(Numeric(8, 2), default=0)
     channel_identified_rate: Mapped[float] = mapped_column(Numeric(8, 2), default=0)
