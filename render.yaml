@@ -8,5 +8,16 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: ENVIRONMENT
+        value: prod
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ghl-central-dashboard-db
+          property: connectionString
       - key: SYNC_INTERVAL_MINUTES
-        value: 5
+        value: 30
+
+databases:
+  - name: ghl-central-dashboard-db
+    databaseName: ghl_dashboard
+    user: ghl_dashboard_user

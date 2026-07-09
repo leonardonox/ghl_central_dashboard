@@ -4,7 +4,22 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from app.core.config import get_settings
 
 settings = get_settings()
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+
+
+def _database_url() -> str:
+    url = settings.database_url
+    if url.startswith('postgres://'):
+        url = url.replace('postgres://', 'postgresql+psycopg://', 1)
+    elif url.startswith('postgresql://'):
+        url = url.replace('postgresql://', 'postgresql+psycopg://', 1)
+
+    if settings.environment.lower() in {'prod', 'production'} and url.startswith('sqlite'):
+        raise RuntimeError('Em producao, use PostgreSQL persistente. SQLite pode perder dados no Render.')
+
+    return url
+
+
+engine = create_engine(_database_url(), pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
