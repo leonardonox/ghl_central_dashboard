@@ -496,9 +496,15 @@ function renderExecutiveBoard(rows) {
   const maxLeads = Math.max(...ordered.map((row) => Number(row.new_leads || 0)), 1);
   return `<section class="ops-board">
     <header class="ops-board-title">
-      <span>Performance operacional</span>
-      <strong>Leads, conversas e conversao por revista</strong>
+      <span>Resumo do periodo selecionado</span>
+      <strong>Entrada de leads por revista</strong>
     </header>
+    <div class="ops-help">
+      <span><strong>Número grande:</strong> leads recebidos no período</span>
+      <span><strong>Bolinha:</strong> diferença contra o período anterior</span>
+      <span><strong>Medidores:</strong> atendimento e origem identificada</span>
+      <span><strong>Rodapé:</strong> conversas, pessoas no WhatsApp e vendas</span>
+    </div>
     <div class="ops-columns">
       ${ordered.map((row) => {
         const daily = dailyRowsFor(row.account);
@@ -508,28 +514,28 @@ function renderExecutiveBoard(rows) {
         return `<article class="ops-column">
           <header class="ops-column-head">
             <strong>${escapeHtml(row.account)}</strong>
-            <span>${escapeHtml(row.best_channel || 'Sem canal')}</span>
+            <span>Origem principal: ${escapeHtml(row.best_channel || 'Sem canal')}</span>
           </header>
           <section class="ops-current">
             <div>
-              <span>Leads no periodo</span>
+              <span>Leads recebidos</span>
               <strong>${row.new_leads || 0}</strong>
             </div>
-            <em class="${tone}">${signed(leadDelta)}</em>
+            <em class="${tone}" title="Comparado com o periodo anterior">${signed(leadDelta)}</em>
           </section>
           <div class="ops-progress"><span style="width:${leadShare}%"></span></div>
           <section class="ops-gauge-row">
-            ${renderGauge('Atendimento', row.attendance_rate, pct(row.attendance_rate))}
-            ${renderGauge('Canal identificado', row.channel_identified_rate, pct(row.channel_identified_rate))}
+            ${renderGauge('Viraram atendimento', row.attendance_rate, pct(row.attendance_rate))}
+            ${renderGauge('Com origem clara', row.channel_identified_rate, pct(row.channel_identified_rate))}
           </section>
           <section class="ops-history">
-            <strong>Historico diario</strong>
+            <strong>Leads por dia</strong>
             ${renderMiniBars(daily, 'leads')}
           </section>
           <footer class="ops-foot">
-            <span><strong>${row.inbox_conversations || 0}</strong> conversas</span>
-            <span><strong>${row.whatsapp_contacts || 0}</strong> WhatsApp</span>
-            <span><strong>${row.sales || 0}</strong> vendas</span>
+            <span><strong>${row.inbox_conversations || 0}</strong> conversas abertas</span>
+            <span><strong>${row.whatsapp_contacts || 0}</strong> pessoas no WhatsApp</span>
+            <span><strong>${row.sales || 0}</strong> vendas feitas</span>
           </footer>
         </article>`;
       }).join('')}
