@@ -24,6 +24,8 @@ const state = {
   rankingMetric: 'new_leads',
 };
 
+let syncPollTimer = null;
+
 const metricLabels = {
   new_leads: 'Leads',
   inbox_conversations: 'Conversas',
@@ -1270,8 +1272,41 @@ $('clear-filters').addEventListener('click', () => {
 
 async function runSync(daysBack, label) {
   try {
-    showStatus(`Sincronizando ${label} no GHL...`);
-    const result = await api(`/sync/run?days_back=${daysBack}`, { method: 'POST' });
+    const started = await api(`/sync/start?days_back=${daysBack}`, { method: 'POST' });
+    showStatus(started.status === 'running'
+      ? `Ja existe uma sincronizacao em andamento. Acompanhando ${label}...`
+      : `Sincronizacao de ${label} iniciada. Pode deixar a pagina aberta ou voltar depois.`);
+    startSyncPolling(label);
+  } catch (error) {
+    showStatus(`Erro ao iniciar sincronizacao GHL: ${error.message}`);
+  }
+}
+
+function startSyncPolling(label) {
+  if (syncPollTimer) clearInterval(syncPollTimer);
+  syncPollTimer = setInterval(async () => {
+    try {
+      const status = await api('/sync/status');
+      if (status.running) {
+        showStatus(`Sincronizando ${label} em segundo plano desde ${formatDateTime(status.started_at)}...`);
+        return;
+      }
+
+      clearInterval(syncPollTimer);
+      syncPollTimer = null;
+
+      if (status.error) {
+        showStatus(`Sincronizacao finalizada com erro: ${status.error}`);
+        return;
+      }
+
+      const result = status.result || {};
+      if (!result.accounts && !result.account_results) {
+        showStatus('Sincronizacao finalizada. Atualize novamente em alguns instantes se os dados ainda nao aparecerem.');
+        await loadDashboard();
+        return;
+      }
+
     if (result.errors?.length) {
       const errors = result.errors.map((item) => `${item.account || 'GHL'}: ${item.error}`).join(' | ');
       showStatus(`Sincronizacao concluida com erros. ${errors}`);
@@ -1285,9 +1320,10 @@ async function runSync(daysBack, label) {
       + `${result.snapshots_created_or_updated || 0} dias consolidados.`
     );
     await loadDashboard();
-  } catch (error) {
-    showStatus(`Erro ao sincronizar GHL: ${error.message}`);
-  }
+    } catch (error) {
+      showStatus(`Erro ao acompanhar sincronizacao: ${error.message}`);
+    }
+  }, 15000);
 }
 
 $('sync-btn').addEventListener('click', () => runSync(7, 'ultimos 7 dias'));
