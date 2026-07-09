@@ -417,7 +417,7 @@ button:hover { filter: brightness(0.96); }
 .compare-kpi {
   display: grid;
   gap: 14px;
-  min-height: 126px;
+  min-height: 146px;
   padding: 15px;
   border-left: 5px solid var(--blue);
 }
@@ -459,6 +459,15 @@ button:hover { filter: brightness(0.96); }
 .compare-head em.negative {
   color: #a31912;
   background: #ffe4e1;
+}
+
+.kpi-description {
+  min-height: 30px;
+  margin: -5px 0 -2px;
+  color: #66756f;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .compare-main {
@@ -2461,4 +2470,8 @@ tbody th,
   position: static;
   top: auto;
   z-index: auto;
+}
+
+.compare-kpi {
+  min-height: 154px;
 }

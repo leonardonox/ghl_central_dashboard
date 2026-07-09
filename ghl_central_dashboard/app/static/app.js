@@ -251,17 +251,29 @@ function kpi(title, value, subtitle = '', tone = 'blue') {
   return `<article class="card kpi ${tone}"><span>${title}</span><strong>${value}</strong><small>${subtitle}</small></article>`;
 }
 
+const kpiDescriptions = {
+  'Total leads': 'Novos leads recebidos no periodo selecionado.',
+  'Atendimentos': 'Leads que chegaram em atendimento no CRM.',
+  'Conversas na caixa': 'Conversas que entraram na caixa do CRM.',
+  'Contatos no WhatsApp': 'Pessoas unicas que falaram pelo WhatsApp.',
+  'Vendas': 'Oportunidades marcadas como venda no periodo.',
+  'Taxa atendimento': 'Percentual de leads que viraram atendimento.',
+  'Canais identificados': 'Leads com origem clara, como Google ou Instagram.',
+};
+
 function compareKpi(title, current, previous, unit = '', tone = 'blue', labels = {}) {
   const diff = Number(current || 0) - Number(previous || 0);
   const diffText = `${diff >= 0 ? '+' : ''}${diff}${unit ? ` ${unit}` : ''}`;
   const diffClass = diff >= 0 ? 'positive' : 'negative';
   const previousLabel = labels.previous || 'Periodo anterior';
   const currentLabel = labels.current || 'Periodo atual';
+  const description = kpiDescriptions[title] || '';
   return `<article class="card compare-kpi ${tone}">
     <div class="compare-head">
       <span>${title}</span>
       <em class="${diffClass}">${diffText}</em>
     </div>
+    ${description ? `<p class="kpi-description">${description}</p>` : ''}
     <div class="compare-main">
       <div><small>Anterior</small><span class="period-date">${previousLabel}</span><strong>${previous}</strong></div>
       <div class="arrow">&rarr;</div>
@@ -271,8 +283,10 @@ function compareKpi(title, current, previous, unit = '', tone = 'blue', labels =
 }
 
 function singleKpi(title, value, subtitle = '', tone = 'blue') {
+  const description = kpiDescriptions[title] || '';
   return `<article class="card compare-kpi single ${tone}">
     <div class="compare-head"><span>${title}</span></div>
+    ${description ? `<p class="kpi-description">${description}</p>` : ''}
     <strong>${value}</strong>
     <small>${subtitle}</small>
   </article>`;
