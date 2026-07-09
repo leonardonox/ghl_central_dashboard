@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import json
 from typing import Any
@@ -43,6 +44,35 @@ class GHLClient:
         except httpx.RequestError as exc:
             logger.exception('Erro de conexão com GHL')
             raise GHLClientError('Falha de conexão com GHL') from exc
+
+    async def post(self, endpoint: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        for attempt in range(3):
+            try:
+                async with httpx.AsyncClient(timeout=40) as client:
+                    response = await client.post(url, headers=self._headers(), json=payload or {})
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as exc:
+                retryable = (
+                    exc.response.status_code == 400
+                    and (
+                        'Error occurred while searching for contact' in exc.response.text
+                        or 'Request Timeout after' in exc.response.text
+                    )
+                )
+                if retryable and attempt < 2:
+                    await asyncio.sleep(1 + attempt)
+                    continue
+                logger.exception('Erro HTTP GHL: %s', exc.response.text)
+                raise GHLClientError(self._format_error(exc.response)) from exc
+            except httpx.RequestError as exc:
+                if attempt < 2:
+                    await asyncio.sleep(1 + attempt)
+                    continue
+                logger.exception('Erro de conexao com GHL')
+                raise GHLClientError('Falha de conexao com GHL') from exc
+        raise GHLClientError('Falha de conexao com GHL')
 
     def _format_error(self, response: httpx.Response) -> str:
         try:

@@ -138,16 +138,16 @@ class MetricsService:
     def total_leads_by_date(self, target_date: date, account_id: int | None = None) -> int:
         start, end = self._day_range(target_date)
         stmt = (
-            select(func.count(Opportunity.id))
-            .join(GHLAccount, Opportunity.account_id == GHLAccount.id)
+            select(func.count(Lead.id))
+            .join(GHLAccount, Lead.account_id == GHLAccount.id)
             .where(
-                Opportunity.ghl_created_at >= start,
-                Opportunity.ghl_created_at < end,
+                Lead.ghl_created_at >= start,
+                Lead.ghl_created_at < end,
                 GHLAccount.active.is_(True),
             )
         )
         if account_id:
-            stmt = stmt.where(Opportunity.account_id == account_id)
+            stmt = stmt.where(Lead.account_id == account_id)
         return int(self.db.scalar(stmt) or 0)
 
     def total_sales_by_date(self, target_date: date, account_id: int | None = None) -> int:
@@ -186,16 +186,16 @@ class MetricsService:
             select(
                 GHLAccount.id,
                 GHLAccount.name,
-                func.count(Opportunity.id).label('leads_count'),
+                func.count(Lead.id).label('leads_count'),
             )
-            .join(Opportunity, Opportunity.account_id == GHLAccount.id, isouter=True)
+            .join(Lead, Lead.account_id == GHLAccount.id, isouter=True)
             .where(
-                Opportunity.ghl_created_at >= start,
-                Opportunity.ghl_created_at < end,
+                Lead.ghl_created_at >= start,
+                Lead.ghl_created_at < end,
                 GHLAccount.active.is_(True),
             )
             .group_by(GHLAccount.id, GHLAccount.name)
-            .order_by(func.count(Opportunity.id).desc())
+            .order_by(func.count(Lead.id).desc())
         )
         if account_id:
             stmt = stmt.where(GHLAccount.id == account_id)
@@ -207,6 +207,12 @@ class MetricsService:
     def performance_by_period(self, start_date: date, end_date: date, account_id: int | None = None) -> dict:
         start, end = self._period_range(start_date, end_date)
 
+        leads = list(self.db.scalars(
+            self._active_account_filter(Lead, account_id).where(
+                Lead.ghl_created_at >= start,
+                Lead.ghl_created_at < end,
+            )
+        ))
         opportunities = list(self.db.scalars(
             self._active_account_filter(Opportunity, account_id).where(
                 Opportunity.ghl_created_at >= start,
@@ -217,11 +223,11 @@ class MetricsService:
 
         lead_channels = Counter()
         hsm_leads = Counter()
-        for opportunity in opportunities:
-            channel = self._opportunity_channel(opportunity)
+        for lead in leads:
+            channel = self._lead_channel(lead)
             if channel:
                 lead_channels[channel] += 1
-            if self._has_hsm(self._tags_from_opportunity(opportunity)):
+            if self._has_hsm(self._tags_from_lead(lead)):
                 hsm_leads[channel or 'SEM CANAL'] += 1
 
         sales_channels = Counter()
@@ -239,7 +245,7 @@ class MetricsService:
         lost_contact_ids = {item.contact_id for item in lost_opportunities if item.contact_id}
 
         funnel_counts = {
-            'lead_novo': len(opportunities),
+            'lead_novo': len(leads),
             'triagem_ia': sum(1 for item in opportunities if self._has_tag(self._tags_from_opportunity(item), 'triagem ia')),
             'triagem_finalizada': sum(
                 1 for item in opportunities if self._has_tag(self._tags_from_opportunity(item), 'triagem ia finalizada')
@@ -251,7 +257,7 @@ class MetricsService:
             'perdido': len(lost_contact_ids),
         }
 
-        daily = Counter(self._local_date(item.ghl_created_at).isoformat() for item in opportunities)
+        daily = Counter(self._local_date(item.ghl_created_at).isoformat() for item in leads)
         days = (end_date - start_date).days + 1
         daily_new_leads = [
             {
@@ -266,7 +272,7 @@ class MetricsService:
             'end_date': end_date.isoformat(),
             'account_id': account_id,
             'totals': {
-                'new_leads': len(opportunities),
+                'new_leads': len(leads),
                 'new_leads_with_channel': sum(lead_channels.values()),
                 'sales': len(sales),
                 'hsm_sales': sum(hsm_sales.values()),

@@ -108,11 +108,23 @@ class GHLSyncService:
 
     async def _fetch_contacts(self, client: GHLClient, location_id: str, start_date: datetime) -> list[dict]:
         contacts: list[dict] = []
-        params = {'locationId': location_id, 'limit': 100}
-        seen_cursors: set[tuple[str, str]] = set()
+        page = 1
+        page_limit = 50
+        start_value = start_date.isoformat() + 'Z'
 
         while True:
-            data = await client.get('/contacts/', params=params)
+            data = await client.post('/contacts/search', {
+                'locationId': location_id,
+                'page': page,
+                'pageLimit': page_limit,
+                'filters': [
+                    {
+                        'field': 'dateAdded',
+                        'operator': 'range',
+                        'value': {'gte': start_value},
+                    },
+                ],
+            })
             page_contacts = data.get('contacts', [])
             for item in page_contacts:
                 created_at = self._parse_date(item.get('dateAdded') or item.get('createdAt'))
@@ -122,9 +134,10 @@ class GHLSyncService:
             if not page_contacts:
                 break
 
-            meta = data.get('meta') or {}
-            if not self._advance_pagination(params, meta, seen_cursors):
+            total = int(data.get('total') or len(contacts))
+            if page * page_limit >= total:
                 break
+            page += 1
 
         return contacts
 
