@@ -23,7 +23,7 @@ class GHLSyncService:
         self.db = db
         self.accounts = AccountRepository(db)
 
-    async def sync_all(self, days_back: int = 7) -> dict:
+    async def sync_all(self, days_back: int = 7, account_ids: list[int] | None = None) -> dict:
         result = {
             'accounts': 0,
             'leads_inserted_or_updated': 0,
@@ -34,7 +34,12 @@ class GHLSyncService:
             'errors': [],
         }
         start_date = datetime.utcnow() - timedelta(days=days_back)
-        for account in self.accounts.list_active():
+        allowed_account_ids = set(account_ids or [])
+        accounts = self.accounts.list_active()
+        if allowed_account_ids:
+            accounts = [account for account in accounts if account.id in allowed_account_ids]
+
+        for account in accounts:
             account_result = {
                 'account_id': account.id,
                 'account': account.name,
@@ -69,9 +74,13 @@ class GHLSyncService:
             result['account_results'].append(account_result)
 
         if not result['account_results']:
-            result['errors'].append({'account': None, 'error': 'Nenhuma revista ativa cadastrada.'})
+            result['errors'].append({'account': None, 'error': 'Nenhuma revista ativa selecionada.'})
         elif result['accounts']:
-            snapshots = MetricsService(self.db).build_daily_snapshots(start_date.date(), datetime.utcnow().date())
+            snapshots = MetricsService(self.db).build_daily_snapshots(
+                start_date.date(),
+                datetime.utcnow().date(),
+                [item['account_id'] for item in result['account_results'] if item['status'] == 'ok'],
+            )
             result['snapshots_created_or_updated'] = snapshots['snapshots_created_or_updated']
         return result
 
@@ -244,9 +253,6 @@ class GHLSyncService:
                 conversations.append(item)
 
             if len(conversations) == added_before_page:
-                break
-
-            if reached_cutoff and start_date:
                 break
 
             meta = data.get('meta') or {}

@@ -1002,8 +1002,11 @@ class MetricsService:
             'last_sync_at': self._last_sync_at(),
         }
 
-    def build_daily_snapshots(self, start_date: date, end_date: date) -> dict:
-        accounts = list(self.db.scalars(select(GHLAccount).where(GHLAccount.active.is_(True))))
+    def build_daily_snapshots(self, start_date: date, end_date: date, account_ids: list[int] | None = None) -> dict:
+        stmt = select(GHLAccount).where(GHLAccount.active.is_(True))
+        if account_ids:
+            stmt = stmt.where(GHLAccount.id.in_(account_ids))
+        accounts = list(self.db.scalars(stmt))
         count = 0
         days = (end_date - start_date).days + 1
 

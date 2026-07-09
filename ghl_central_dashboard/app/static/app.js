@@ -1242,6 +1242,12 @@ function selectedNames() {
   return [...state.selectedAccounts];
 }
 
+function selectedAccountIds() {
+  return state.accounts
+    .filter((account) => state.selectedAccounts.has(account.name))
+    .map((account) => account.id);
+}
+
 async function initApp() {
   fillMonthSelects();
   state.accounts = await api('/accounts');
@@ -1273,11 +1279,21 @@ $('clear-selection').addEventListener('click', () => {
 
 async function runSync(daysBack, label) {
   try {
-    const started = await api(`/sync/start?days_back=${daysBack}`, { method: 'POST' });
+    const accountIds = selectedAccountIds();
+    if (!accountIds.length) {
+      showStatus('Selecione pelo menos uma revista para sincronizar.');
+      return;
+    }
+    const params = new URLSearchParams({ days_back: String(daysBack) });
+    accountIds.forEach((id) => params.append('account_ids', String(id)));
+    const selectedLabel = accountIds.length === state.accounts.length
+      ? 'todas as revistas'
+      : `${accountIds.length} revista${accountIds.length > 1 ? 's' : ''} selecionada${accountIds.length > 1 ? 's' : ''}`;
+    const started = await api(`/sync/start?${params.toString()}`, { method: 'POST' });
     showStatus(started.status === 'running'
       ? `Ja existe uma sincronizacao em andamento. Acompanhando ${label}...`
-      : `Sincronizacao de ${label} iniciada. Pode deixar a pagina aberta ou voltar depois.`);
-    startSyncPolling(label);
+      : `Sincronizacao de ${label} iniciada para ${selectedLabel}. Pode deixar a pagina aberta ou voltar depois.`);
+    startSyncPolling(`${label} (${selectedLabel})`);
   } catch (error) {
     showStatus(`Erro ao iniciar sincronizacao GHL: ${error.message}`);
   }

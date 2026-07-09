@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -22,24 +22,26 @@ sync_state = {
     'started_at': None,
     'finished_at': None,
     'days_back': None,
+    'account_ids': None,
     'result': None,
     'error': None,
 }
 
 
-async def _run_background_sync(days_back: int) -> None:
+async def _run_background_sync(days_back: int, account_ids: list[int] | None = None) -> None:
     days_back = max(1, min(days_back, MAX_SYNC_DAYS))
     sync_state.update({
         'running': True,
         'started_at': datetime.utcnow().isoformat(),
         'finished_at': None,
         'days_back': days_back,
+        'account_ids': account_ids,
         'result': None,
         'error': None,
     })
     db = SessionLocal()
     try:
-        sync_state['result'] = await GHLSyncService(db).sync_all(days_back=days_back)
+        sync_state['result'] = await GHLSyncService(db).sync_all(days_back=days_back, account_ids=account_ids)
     except Exception as exc:
         sync_state['error'] = str(exc)
     finally:
@@ -49,18 +51,22 @@ async def _run_background_sync(days_back: int) -> None:
 
 
 @router.post('/run')
-async def run_sync(days_back: int = 7, db: Session = Depends(get_db)):
+async def run_sync(
+    days_back: int = 7,
+    account_ids: list[int] | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
     days_back = max(1, min(days_back, MAX_SYNC_DAYS))
-    return await GHLSyncService(db).sync_all(days_back=days_back)
+    return await GHLSyncService(db).sync_all(days_back=days_back, account_ids=account_ids)
 
 
 @router.post('/start')
-async def start_sync(days_back: int = 7):
+async def start_sync(days_back: int = 7, account_ids: list[int] | None = Query(default=None)):
     days_back = max(1, min(days_back, MAX_SYNC_DAYS))
     if sync_state['running']:
         return {'status': 'running', **sync_state}
-    asyncio.create_task(_run_background_sync(days_back))
-    return {'status': 'started', 'days_back': days_back}
+    asyncio.create_task(_run_background_sync(days_back, account_ids))
+    return {'status': 'started', 'days_back': days_back, 'account_ids': account_ids}
 
 
 @router.get('/status')
