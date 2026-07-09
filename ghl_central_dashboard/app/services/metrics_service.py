@@ -257,7 +257,11 @@ class MetricsService:
             'perdido': len(lost_contact_ids),
         }
 
-        daily = Counter(self._local_date(item.ghl_created_at).isoformat() for item in leads)
+        daily = Counter()
+        for item in self._period_conversations_for_account(account_id, start_date, end_date):
+            entry_date = self._conversation_entry_date(item)
+            if entry_date:
+                daily[self._local_date(entry_date).isoformat()] += 1
         days = (end_date - start_date).days + 1
         daily_new_leads = [
             {
@@ -272,7 +276,7 @@ class MetricsService:
             'end_date': end_date.isoformat(),
             'account_id': account_id,
             'totals': {
-                'new_leads': len(leads),
+                'new_leads': self._inbox_conversations_for_account(account_id, start_date, end_date),
                 'new_leads_with_channel': sum(lead_channels.values()),
                 'sales': len(sales),
                 'hsm_sales': sum(hsm_sales.values()),
@@ -311,15 +315,12 @@ class MetricsService:
         }
 
     def _attendances_for_account(self, account_id: int, start_date: date, end_date: date) -> int:
-        start, end = self._period_range(start_date, end_date)
-        leads = list(self.db.scalars(
-            select(Lead).where(
-                Lead.account_id == account_id,
-                Lead.ghl_created_at >= start,
-                Lead.ghl_created_at < end,
-            )
-        ))
-        return sum(1 for item in leads if self._has_attendance(self._tags_from_lead(item)))
+        identifiers = {
+            self._conversation_identifier(item)
+            for item in self._period_conversations_for_account(account_id, start_date, end_date)
+            if self._conversation_identifier(item) and self._is_answered_conversation(item)
+        }
+        return len(identifiers)
 
     def _whatsapp_contacts_for_account(self, account_id: int, start_date: date, end_date: date) -> int:
         start, end = self._period_range(start_date, end_date)
@@ -339,6 +340,28 @@ class MetricsService:
 
     def _conversation_entry_date(self, conversation: Conversation) -> datetime | None:
         return conversation.last_message_date or conversation.last_inbound_whatsapp_message_date
+
+    def _conversation_identifier(self, conversation: Conversation) -> str | None:
+        return conversation.contact_id or conversation.phone or conversation.ghl_conversation_id
+
+    def _period_conversations_for_account(self, account_id: int | None, start_date: date, end_date: date) -> list[Conversation]:
+        start, end = self._period_range(start_date, end_date)
+        entry_date = func.coalesce(Conversation.last_message_date, Conversation.last_inbound_whatsapp_message_date)
+        stmt = (
+            select(Conversation)
+            .join(GHLAccount, Conversation.account_id == GHLAccount.id)
+            .where(
+                GHLAccount.active.is_(True),
+                entry_date >= start,
+                entry_date < end,
+            )
+        )
+        if account_id:
+            stmt = stmt.where(Conversation.account_id == account_id)
+        return list(self.db.scalars(stmt))
+
+    def _is_answered_conversation(self, conversation: Conversation) -> bool:
+        return self._last_actor(conversation) in {'Atendente', 'IA/Automacao'}
 
     def _raw_datetime(self, raw: dict, key: str) -> datetime | None:
         value = raw.get(key)
@@ -540,16 +563,20 @@ class MetricsService:
             'worst_accounts': worst_accounts[:10],
         }
 
-    def _inbox_conversations_for_account(self, account_id: int, start_date: date, end_date: date) -> int:
+    def _inbox_conversations_for_account(self, account_id: int | None, start_date: date, end_date: date) -> int:
         start, end = self._period_range(start_date, end_date)
         entry_date = func.coalesce(Conversation.last_message_date, Conversation.last_inbound_whatsapp_message_date)
         stmt = (
-            select(func.count(Conversation.id)).where(
-                Conversation.account_id == account_id,
+            select(func.count(Conversation.id))
+            .join(GHLAccount, Conversation.account_id == GHLAccount.id)
+            .where(
+                GHLAccount.active.is_(True),
                 entry_date >= start,
                 entry_date < end,
             )
         )
+        if account_id:
+            stmt = stmt.where(Conversation.account_id == account_id)
         return int(self.db.scalar(stmt) or 0)
 
     def _daily_inbox_conversations(self, account_id: int, start_date: date, end_date: date) -> list[dict]:
@@ -607,7 +634,7 @@ class MetricsService:
                 DailySnapshot.snapshot_date >= start_date,
                 DailySnapshot.snapshot_date <= end_date,
                 DailySnapshot.account_id.in_([account.id for account in accounts]),
-                DailySnapshot.metric_version == 3,
+                DailySnapshot.metric_version == 4,
             )
         ))
         if len(snapshots) < len(accounts) * days:
@@ -997,7 +1024,7 @@ class MetricsService:
                     'whatsapp_contacts': totals['whatsapp_contacts'],
                     'inbox_conversations': totals['inbox_conversations'],
                     'lead_channels': performance['lead_channels'],
-                    'metric_version': 3,
+                    'metric_version': 4,
                     'attendance_rate': self._percent(attendances, totals['new_leads']),
                     'sales_rate': self._percent(totals['sales'], totals['new_leads']),
                     'channel_identified_rate': self._percent(totals['new_leads_with_channel'], totals['new_leads']),

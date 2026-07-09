@@ -27,7 +27,7 @@ const state = {
 let syncPollTimer = null;
 
 const metricLabels = {
-  new_leads: 'Leads',
+  new_leads: 'Leads/caixa',
   inbox_conversations: 'Conversas',
   whatsapp_contacts: 'WhatsApp',
   attendances: 'Atendimentos',
@@ -254,13 +254,13 @@ function kpi(title, value, subtitle = '', tone = 'blue') {
 }
 
 const kpiDescriptions = {
-  'Total leads': 'Novos leads recebidos no periodo selecionado.',
-  'Atendimentos': 'Leads novos com tag de atendimento no CRM.',
+  'Total leads': 'Conversas abertas na caixa Todos no periodo.',
+  'Atendimentos': 'Pessoas em que a IA ou atendente respondeu.',
   'Movimento na caixa': 'Conversas do periodo, incluindo contatos antigos.',
   'Pessoas no WhatsApp': 'Pessoas unicas no WhatsApp, nao apenas leads novos.',
   'Vendas': 'Oportunidades marcadas como venda no periodo.',
-  'Taxa atendimento': 'Percentual de leads que viraram atendimento.',
-  'Canais identificados': 'Leads com origem clara, como Google ou Instagram.',
+  'Taxa atendimento': 'Percentual das conversas que receberam resposta.',
+  'Canais identificados': 'Contatos com origem clara, como Google ou Instagram.',
   'Resposta media': 'Tempo medio ate a ultima resposta humana.',
 };
 
@@ -432,15 +432,14 @@ function renderSummary(currentRows, previousRows) {
   $('resumo').innerHTML = `
     ${section('Resumo executivo')}
     <div class="kpi-grid">
-      ${compareKpi('Total leads', leads, prevLeads, 'leads', 'blue', labels)}
+      ${compareKpi('Total leads', leads, prevLeads, 'conversas', 'blue', labels)}
       ${compareKpi('Atendimentos', attends, prevAttends, '', 'green', labels)}
-      ${compareKpi('Movimento na caixa', inboxConversations, prevInboxConversations, 'conversas', 'blue', labels)}
       ${compareKpi('Pessoas no WhatsApp', whatsapp, prevWhatsapp, 'pessoas', 'green', labels)}
       ${compareKpi('Vendas', sales, prevSales, '', 'orange', labels)}
       ${singleKpi('Canais identificados', pct(leads ? (channel / leads) * 100 : 0), `${channel} leads`, 'blue')}
     </div>
     <div class="kpi-note">
-      Leads medem contatos novos. Atendimentos medem leads novos com tag de atendimento. Movimento na caixa e WhatsApp medem atividade de conversas no periodo e podem incluir contatos antigos.
+      Total leads mede as conversas abertas na aba Todos. Atendimentos mede pessoas em que IA ou atendente respondeu. WhatsApp mede pessoas unicas com mensagem recebida no periodo.
     </div>
     <br>
     ${renderHighlights()}
@@ -471,14 +470,14 @@ function renderDropRanking(rows) {
   return `<article class="card drop-ranking">
     <header>
       <strong>Ranking de queda</strong>
-      <span>Revistas que mais caíram em leads contra o período anterior.</span>
+      <span>Revistas que mais caíram em conversas na caixa contra o período anterior.</span>
     </header>
     <div class="drop-ranking-list">
       ${drops.map((row) => `
         <div class="drop-ranking-row">
           <strong>${escapeHtml(row.account)}</strong>
           <span>${row.previous_new_leads || 0} → ${row.new_leads || 0}</span>
-          <em class="${row.lead_delta < 0 ? 'negative' : 'positive'}">${signed(row.lead_delta)} leads</em>
+          <em class="${row.lead_delta < 0 ? 'negative' : 'positive'}">${signed(row.lead_delta)} conversas</em>
         </div>
       `).join('')}
     </div>
@@ -543,10 +542,10 @@ function renderExecutiveBoard(rows) {
   return `<section class="ops-board">
     <header class="ops-board-title">
       <span>Resumo do periodo selecionado</span>
-      <strong>Entrada de leads por revista</strong>
+      <strong>Conversas abertas por revista</strong>
     </header>
     <div class="ops-help">
-      <span><strong>Número grande:</strong> leads recebidos no período</span>
+      <span><strong>Número grande:</strong> conversas na caixa Todos no periodo</span>
       <span><strong>Bolinha:</strong> diferença contra o período anterior</span>
       <span><strong>Medidores:</strong> atendimento e origem identificada</span>
       <span><strong>Rodapé:</strong> conversas, pessoas no WhatsApp e vendas</span>
@@ -564,7 +563,7 @@ function renderExecutiveBoard(rows) {
           </header>
           <section class="ops-current">
             <div>
-              <span>Leads recebidos</span>
+              <span>Conversas na caixa</span>
               <strong>${row.new_leads || 0}</strong>
             </div>
             <em class="${tone}" title="Comparado com o periodo anterior">${signed(leadDelta)}</em>
@@ -575,7 +574,7 @@ function renderExecutiveBoard(rows) {
             ${renderGauge('Com origem clara', row.channel_identified_rate, pct(row.channel_identified_rate))}
           </section>
           <section class="ops-history">
-            <strong>Leads por dia</strong>
+            <strong>Conversas por dia</strong>
             ${renderMiniBars(daily, 'leads')}
           </section>
           <footer class="ops-foot">
@@ -598,7 +597,7 @@ function renderDailyOperations(rows) {
   return `<section class="ops-day-board">
     <header class="ops-board-title">
       <span>Controle diario</span>
-      <strong>Entrada de leads e conversas por dia</strong>
+      <strong>Conversas por dia</strong>
     </header>
     <div class="ops-day-grid">
       ${ordered.map((row) => {
@@ -606,7 +605,7 @@ function renderDailyOperations(rows) {
         return `<article class="ops-day-card">
           <header>
             <strong>${escapeHtml(row.account)}</strong>
-            <span>${row.new_leads || 0} leads no periodo</span>
+            <span>${row.new_leads || 0} conversas no periodo</span>
           </header>
           <div class="ops-day-table">
             ${daily.map((item) => {
@@ -619,7 +618,7 @@ function renderDailyOperations(rows) {
               </div>`;
             }).join('') || '<div class="ops-empty">Sem dados diarios</div>'}
           </div>
-          <footer><span>Leads</span><span>Conversas</span></footer>
+          <footer><span>Total leads</span><span>Conversas</span></footer>
         </article>`;
       }).join('')}
     </div>
@@ -696,7 +695,7 @@ function renderCompare(currentRows) {
         <article class="lead-card">
           <span>${row.account}</span>
           <strong>${row.new_leads || 0}</strong>
-          <small>leads</small>
+          <small>conversas</small>
         </article>
       `).join('') || '<div class="empty-state"><strong>Nenhuma revista selecionada.</strong></div>'}
     </div>
@@ -938,7 +937,7 @@ function renderAlerts() {
     <div class="diagnosis">${state.current.diagnosis}</div><br>
     <div class="diagnosis">
       <strong>Base de conferencia</strong><br>
-      Leads: contatos novos no GHL. WhatsApp: pessoas unicas com mensagem recebida no periodo. Atendimentos: leads novos com tag de atendimento.
+      Leads: conversas abertas na aba Todos. WhatsApp: pessoas unicas com mensagem recebida no periodo. Atendimentos: pessoas em que IA ou atendente respondeu.
     </div><br>`
     + (alerts.length ? `<div class="alert-list">${alerts.map((alert) => `<div class="alert"><strong>${alert.account}</strong><br>${alert.message}</div>`).join('')}</div>` : '<div class="diagnosis">Nenhum alerta encontrado.</div>');
 }
