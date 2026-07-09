@@ -224,6 +224,7 @@ class GHLSyncService:
                 break
 
             reached_cutoff = False
+            added_before_page = len(conversations)
             for item in page_conversations:
                 conversation_id = str(item.get('id') or '')
                 if not conversation_id or conversation_id in seen_ids:
@@ -241,6 +242,9 @@ class GHLSyncService:
 
                 seen_ids.add(conversation_id)
                 conversations.append(item)
+
+            if len(conversations) == added_before_page:
+                break
 
             if reached_cutoff and start_date:
                 break
