@@ -27,6 +27,7 @@ CHANNELS = [
 SALE_STATUSES = {'won', 'closed', 'won_status'}
 LOCAL_TIMEZONE = ZoneInfo('America/Sao_Paulo')
 WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']
+METRIC_VERSION = 5
 
 
 class MetricsService:
@@ -634,7 +635,7 @@ class MetricsService:
                 DailySnapshot.snapshot_date >= start_date,
                 DailySnapshot.snapshot_date <= end_date,
                 DailySnapshot.account_id.in_([account.id for account in accounts]),
-                DailySnapshot.metric_version == 4,
+                DailySnapshot.metric_version == METRIC_VERSION,
             )
         ))
         if len(snapshots) < len(accounts) * days:
@@ -1024,7 +1025,7 @@ class MetricsService:
                     'whatsapp_contacts': totals['whatsapp_contacts'],
                     'inbox_conversations': totals['inbox_conversations'],
                     'lead_channels': performance['lead_channels'],
-                    'metric_version': 4,
+                    'metric_version': METRIC_VERSION,
                     'attendance_rate': self._percent(attendances, totals['new_leads']),
                     'sales_rate': self._percent(totals['sales'], totals['new_leads']),
                     'channel_identified_rate': self._percent(totals['new_leads_with_channel'], totals['new_leads']),

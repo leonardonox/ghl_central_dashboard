@@ -208,9 +208,16 @@ class GHLSyncService:
         conversations: list[dict] = []
         params = {'locationId': location_id, 'limit': 100}
         seen_ids: set[str] = set()
-        seen_cursors: set[str] = set()
+        seen_cursors: set[tuple[str, str]] = set()
+        seen_date_cursors: set[str] = set()
+        page_count = 0
 
         while True:
+            page_count += 1
+            if page_count > 500:
+                logger.warning('Limite de paginas atingido ao buscar conversas da location %s', location_id)
+                break
+
             data = await client.get('/conversations/search', params=params)
             page_conversations = data.get('conversations', [])
             if not page_conversations:
@@ -235,16 +242,21 @@ class GHLSyncService:
                 seen_ids.add(conversation_id)
                 conversations.append(item)
 
+            if reached_cutoff and start_date:
+                break
+
+            meta = data.get('meta') or {}
+            if self._advance_pagination(params, meta, seen_cursors):
+                params.pop('startAfterDate', None)
+                continue
+
             cursor = page_conversations[-1].get('lastMessageDate')
             if not cursor:
                 break
             cursor = str(cursor)
-            if cursor in seen_cursors:
+            if cursor in seen_date_cursors:
                 break
-            seen_cursors.add(cursor)
-
-            if reached_cutoff and start_date:
-                break
+            seen_date_cursors.add(cursor)
 
             params['startAfterDate'] = cursor
 
