@@ -45,6 +45,7 @@ def ensure_runtime_schema() -> None:
         'whatsapp_contacts': 'INTEGER DEFAULT 0 NOT NULL',
         'inbox_conversations': 'INTEGER DEFAULT 0 NOT NULL',
         'lead_channels': 'JSON',
+        'metric_version': 'INTEGER DEFAULT 2 NOT NULL',
     }
     missing = [(name, ddl) for name, ddl in additions.items() if name not in existing_columns]
     if not missing:

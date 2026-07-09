@@ -87,10 +87,14 @@ async def audit_sync(days_back: int = 7, db: Session = Depends(get_db)):
                 )
             ) or 0),
             'local_conversations': int(db.scalar(
-                select(func.count(Conversation.id)).where(Conversation.account_id == account.id)
+                select(func.count(Conversation.id)).where(
+                    Conversation.account_id == account.id,
+                    Conversation.last_message_date >= start_date,
+                )
             ) or 0),
             'ghl_contacts': None,
             'ghl_opportunities': None,
+            'ghl_conversations': None,
             'status': 'ok',
             'error': None,
         }
@@ -99,8 +103,10 @@ async def audit_sync(days_back: int = 7, db: Session = Depends(get_db)):
             contacts = await service._fetch_contacts(client, account.location_id, start_date)
             stages = await service._fetch_pipeline_stages(client, account.location_id)
             opportunities = await service._fetch_opportunities(client, account.location_id, start_date, stages)
+            conversations = await service._fetch_conversations(client, account.location_id, start_date)
             row['ghl_contacts'] = len(contacts)
             row['ghl_opportunities'] = len(opportunities)
+            row['ghl_conversations'] = len(conversations)
         except Exception as exc:
             row['status'] = 'error'
             row['error'] = str(exc)

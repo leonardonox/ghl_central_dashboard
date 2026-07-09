@@ -56,7 +56,7 @@ class GHLSyncService:
                 account_result['opportunities'] = self._upsert_opportunities(account.id, opportunities)
                 result['opportunities_inserted_or_updated'] += account_result['opportunities']
 
-                conversations = await self._fetch_conversations(client, account.location_id)
+                conversations = await self._fetch_conversations(client, account.location_id, start_date)
                 account_result['conversations'] = self._upsert_conversations(account.id, conversations)
                 result['conversations_inserted_or_updated'] += account_result['conversations']
                 result['accounts'] += 1
@@ -199,22 +199,54 @@ class GHLSyncService:
 
         return opportunities
 
-    async def _fetch_conversations(self, client: GHLClient, location_id: str) -> list[dict]:
+    async def _fetch_conversations(
+        self,
+        client: GHLClient,
+        location_id: str,
+        start_date: datetime | None = None,
+    ) -> list[dict]:
         conversations: list[dict] = []
         params = {'locationId': location_id, 'limit': 100}
-        seen_cursors: set[tuple[str, str]] = set()
+        seen_ids: set[str] = set()
+        seen_cursors: set[str] = set()
 
         while True:
             data = await client.get('/conversations/search', params=params)
             page_conversations = data.get('conversations', [])
-            conversations.extend(page_conversations)
-
             if not page_conversations:
                 break
 
-            meta = data.get('meta') or {}
-            if not self._advance_pagination(params, meta, seen_cursors):
+            reached_cutoff = False
+            for item in page_conversations:
+                conversation_id = str(item.get('id') or '')
+                if not conversation_id or conversation_id in seen_ids:
+                    continue
+
+                last_message_date = self._parse_timestamp_ms(item.get('lastMessageDate'))
+                last_inbound_date = self._parse_timestamp_ms(item.get('lastInboundWhatsappMessageDate'))
+                newest_activity = max(
+                    [value for value in [last_message_date, last_inbound_date] if value],
+                    default=None,
+                )
+                if start_date and newest_activity and newest_activity < start_date:
+                    reached_cutoff = True
+                    continue
+
+                seen_ids.add(conversation_id)
+                conversations.append(item)
+
+            cursor = page_conversations[-1].get('lastMessageDate')
+            if not cursor:
                 break
+            cursor = str(cursor)
+            if cursor in seen_cursors:
+                break
+            seen_cursors.add(cursor)
+
+            if reached_cutoff and start_date:
+                break
+
+            params['startAfterDate'] = cursor
 
         return conversations
 

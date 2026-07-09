@@ -607,6 +607,7 @@ class MetricsService:
                 DailySnapshot.snapshot_date >= start_date,
                 DailySnapshot.snapshot_date <= end_date,
                 DailySnapshot.account_id.in_([account.id for account in accounts]),
+                DailySnapshot.metric_version == 2,
             )
         ))
         if len(snapshots) < len(accounts) * days:
@@ -996,6 +997,7 @@ class MetricsService:
                     'whatsapp_contacts': totals['whatsapp_contacts'],
                     'inbox_conversations': totals['inbox_conversations'],
                     'lead_channels': performance['lead_channels'],
+                    'metric_version': 2,
                     'attendance_rate': self._percent(attendances, totals['new_leads']),
                     'sales_rate': self._percent(totals['sales'], totals['new_leads']),
                     'channel_identified_rate': self._percent(totals['new_leads_with_channel'], totals['new_leads']),
