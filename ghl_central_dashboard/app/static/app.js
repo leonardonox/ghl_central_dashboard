@@ -259,6 +259,7 @@ const kpiDescriptions = {
   'Vendas': 'Oportunidades marcadas como venda no periodo.',
   'Taxa atendimento': 'Percentual de leads que viraram atendimento.',
   'Canais identificados': 'Leads com origem clara, como Google ou Instagram.',
+  'Resposta media': 'Tempo medio ate a ultima resposta humana.',
 };
 
 function compareKpi(title, current, previous, unit = '', tone = 'blue', labels = {}) {
@@ -438,6 +439,7 @@ function renderSummary(currentRows, previousRows) {
     </div>
     <br>
     ${renderHighlights()}
+    ${renderDropRanking(currentRows)}
     ${renderExecutiveBoard(currentRows)}
   `;
 }
@@ -450,6 +452,32 @@ function renderHighlights() {
     ${miniHighlight('Maior alta', highlights.biggest_growth, 'lead_delta', 'green', ' leads')}
     ${miniHighlight('Maior queda', highlights.biggest_drop, 'lead_delta', 'red', ' leads')}
   </div>`;
+}
+
+function renderDropRanking(rows) {
+  const drops = [...rows]
+    .map((row) => ({
+      ...row,
+      lead_delta: Number(row.new_leads || 0) - Number(row.previous_new_leads || 0),
+    }))
+    .sort((a, b) => a.lead_delta - b.lead_delta)
+    .slice(0, 5);
+  if (!drops.length) return '';
+  return `<article class="card drop-ranking">
+    <header>
+      <strong>Ranking de queda</strong>
+      <span>Revistas que mais caíram em leads contra o período anterior.</span>
+    </header>
+    <div class="drop-ranking-list">
+      ${drops.map((row) => `
+        <div class="drop-ranking-row">
+          <strong>${escapeHtml(row.account)}</strong>
+          <span>${row.previous_new_leads || 0} → ${row.new_leads || 0}</span>
+          <em class="${row.lead_delta < 0 ? 'negative' : 'positive'}">${signed(row.lead_delta)} leads</em>
+        </div>
+      `).join('')}
+    </div>
+  </article>`;
 }
 
 function ratio(value, total) {
@@ -809,6 +837,7 @@ function slaSummaryTable(rows) {
     <th>SLA vencido</th>
     <th>Vence em breve</th>
     <th>Dentro do SLA</th>
+    <th>Resposta media</th>
     <th>Tempo medio</th>
     <th>Maior espera</th>
     <th>Taxa vencida</th>
@@ -823,6 +852,7 @@ function slaSummaryTable(rows) {
       <td>${row.overdue}</td>
       <td>${row.due_soon || 0}</td>
       <td>${row.sla_ok}</td>
+      <td>${row.response_count ? escapeHtml(formatWait(Math.round(row.avg_response_minutes || 0))) : '-'}</td>
       <td>${escapeHtml(formatWait(Math.round(row.avg_wait_minutes || 0)))}</td>
       <td>${escapeHtml(formatWait(row.max_wait_minutes))}</td>
       <td>${escapeHtml(pct(row.overdue_rate || 0))}</td>
@@ -850,9 +880,12 @@ function renderSla() {
     acc.due_soon += Number(row.due_soon || 0);
     acc.overdue += Number(row.overdue || 0);
     acc.sla_ok += Number(row.sla_ok || 0);
+    acc.response_minutes += Number(row.avg_response_minutes || 0) * Number(row.response_count || 0);
+    acc.response_count += Number(row.response_count || 0);
     return acc;
-  }, { conversations: 0, waiting_response: 0, unread: 0, ai_handling: 0, human_replied: 0, due_soon: 0, overdue: 0, sla_ok: 0 });
+  }, { conversations: 0, waiting_response: 0, unread: 0, ai_handling: 0, human_replied: 0, due_soon: 0, overdue: 0, sla_ok: 0, response_minutes: 0, response_count: 0 });
   const overdueRate = totals.waiting_response ? (totals.overdue / totals.waiting_response) * 100 : 0;
+  const avgResponse = totals.response_count ? Math.round(totals.response_minutes / totals.response_count) : 0;
   const avgWait = critical.length
     ? Math.round(critical.reduce((sumValue, item) => sumValue + Number(item.wait_minutes || 0), 0) / critical.length)
     : 0;
@@ -867,6 +900,7 @@ function renderSla() {
       ${singleKpi('Não lidas', totals.unread, 'unreadCount do GHL', totals.unread ? 'orange' : 'green')}
       ${singleKpi('SLA vencido', totals.overdue, 'overdueAt já passou', totals.overdue ? 'red' : 'green')}
       ${singleKpi('Vence em breve', totals.due_soon, 'proximos 30 min', totals.due_soon ? 'orange' : 'green')}
+      ${singleKpi('Resposta media', totals.response_count ? formatWait(avgResponse) : '-', 'ultima resposta humana', 'blue')}
       ${singleKpi('Tempo medio', formatWait(avgWait), 'desde slaStartAt', 'orange')}
       ${singleKpi('Taxa vencida', pct(overdueRate), 'vencidas / sem resposta', overdueRate ? 'red' : 'green')}
     </div>
@@ -1161,10 +1195,10 @@ $('clear-filters').addEventListener('click', () => {
   loadDashboard();
 });
 
-$('sync-btn').addEventListener('click', async () => {
+async function runSync(daysBack, label) {
   try {
-    showStatus('Sincronizando dados do GHL...');
-    const result = await api('/sync/run?days_back=3650', { method: 'POST' });
+    showStatus(`Sincronizando ${label} no GHL...`);
+    const result = await api(`/sync/run?days_back=${daysBack}`, { method: 'POST' });
     if (result.errors?.length) {
       const errors = result.errors.map((item) => `${item.account || 'GHL'}: ${item.error}`).join(' | ');
       showStatus(`Sincronizacao concluida com erros. ${errors}`);
@@ -1181,7 +1215,10 @@ $('sync-btn').addEventListener('click', async () => {
   } catch (error) {
     showStatus(`Erro ao sincronizar GHL: ${error.message}`);
   }
-});
+}
+
+$('sync-btn').addEventListener('click', () => runSync(7, 'ultimos 7 dias'));
+$('sync-full-btn').addEventListener('click', () => runSync(3650, 'historico completo'));
 
 $('pdf-btn').addEventListener('click', () => {
   window.print();

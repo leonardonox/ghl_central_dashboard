@@ -379,6 +379,15 @@ class MetricsService:
             return 'Atendente'
         return 'Indefinido'
 
+    def _response_minutes(self, conversation: Conversation) -> int | None:
+        if self._last_actor(conversation) != 'Atendente':
+            return None
+        inbound_at = conversation.last_inbound_whatsapp_message_date
+        replied_at = conversation.last_message_date
+        if not inbound_at or not replied_at or replied_at <= inbound_at:
+            return None
+        return max(0, int((replied_at - inbound_at).total_seconds() // 60))
+
     def sla_dashboard(self, start_date: date, end_date: date, sla_hours: int = 2) -> dict:
         start, end = self._period_range(start_date, end_date)
         now = datetime.utcnow()
@@ -395,6 +404,8 @@ class MetricsService:
         total_unread = 0
         total_ai_handling = 0
         total_human_replied = 0
+        total_response_minutes = 0
+        total_response_count = 0
 
         for account in accounts:
             conversations = list(self.db.scalars(
@@ -416,6 +427,10 @@ class MetricsService:
                 1 for item in period_conversations
                 if self._last_actor(item) == 'Atendente'
             )
+            response_minutes = [
+                minutes for item in period_conversations
+                if (minutes := self._response_minutes(item)) is not None
+            ]
 
             waiting_items = []
             for item in active_sla:
@@ -467,6 +482,8 @@ class MetricsService:
             total_overdue += overdue_count
             total_ai_handling += ai_handling_count
             total_human_replied += human_replied_count
+            total_response_minutes += sum(response_minutes)
+            total_response_count += len(response_minutes)
 
             rows.append({
                 'account_id': account.id,
@@ -483,6 +500,11 @@ class MetricsService:
                     sum(item['wait_minutes'] for item in waiting_items) / len(waiting_items),
                     1,
                 ) if waiting_items else 0,
+                'avg_response_minutes': round(
+                    sum(response_minutes) / len(response_minutes),
+                    1,
+                ) if response_minutes else 0,
+                'response_count': len(response_minutes),
                 'max_wait_minutes': max((item['wait_minutes'] for item in waiting_items), default=0),
                 'overdue_rate': self._percent(overdue_count, len(waiting_items)),
             })
@@ -503,6 +525,8 @@ class MetricsService:
                 'overdue': total_overdue,
                 'sla_ok': max(total_waiting - total_overdue, 0),
                 'avg_wait_minutes': round(total_wait_minutes / total_waiting, 1) if total_waiting else 0,
+                'avg_response_minutes': round(total_response_minutes / total_response_count, 1) if total_response_count else 0,
+                'response_count': total_response_count,
                 'overdue_rate': self._percent(total_overdue, total_waiting),
             },
             'rows': rows,
