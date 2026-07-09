@@ -434,7 +434,6 @@ function renderSummary(currentRows, previousRows) {
       ${compareKpi('Conversas na caixa', inboxConversations, prevInboxConversations, 'conversas', 'blue', labels)}
       ${compareKpi('Contatos no WhatsApp', whatsapp, prevWhatsapp, 'pessoas', 'green', labels)}
       ${compareKpi('Vendas', sales, prevSales, '', 'orange', labels)}
-      ${singleKpi('Taxa atendimento', pct(leads ? (attends / leads) * 100 : 0), 'atendimentos / leads', 'orange')}
       ${singleKpi('Canais identificados', pct(leads ? (channel / leads) * 100 : 0), `${channel} leads`, 'blue')}
     </div>
     <br>
