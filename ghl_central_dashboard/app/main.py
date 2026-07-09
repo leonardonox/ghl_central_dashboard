@@ -30,16 +30,16 @@ app.include_router(sync.router)
 
 
 async def _auto_sync_loop() -> None:
-    interval_seconds = max(settings.sync_interval_minutes, 5) * 60
+    interval_seconds = max(settings.sync_interval_minutes, 30) * 60
     while True:
+        await asyncio.sleep(interval_seconds)
         db = SessionLocal()
         try:
-            await GHLSyncService(db).sync_all(days_back=30)
+            await GHLSyncService(db).sync_all(days_back=7)
         except Exception:
             logger.exception('Falha na sincronizacao automatica')
         finally:
             db.close()
-        await asyncio.sleep(interval_seconds)
 
 
 @app.on_event('startup')
