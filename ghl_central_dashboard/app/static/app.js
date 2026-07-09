@@ -207,7 +207,6 @@ function renderWeekSelector() {
 
 function filterRows(rows) {
   const selected = selectedNames();
-  if (!selected.length) return rows;
   return rows.filter((row) => selected.includes(row.account));
 }
 
@@ -393,10 +392,14 @@ function table(rows) {
 
 function renderChips() {
   const container = $('account-chips');
-  $('selected-count').textContent = `${state.selectedAccounts.size} de ${state.accounts.length} selecionadas`;
+  const selectedCount = state.selectedAccounts.size;
+  const totalCount = state.accounts.length;
+  $('selected-count').textContent = `${selectedCount} de ${totalCount} selecionadas`;
+  $('select-all').disabled = totalCount > 0 && selectedCount === totalCount;
+  $('clear-selection').disabled = selectedCount === 0;
   container.innerHTML = state.accounts.map((account) => {
     const active = state.selectedAccounts.has(account.name);
-    return `<button class="chip ${active ? '' : 'off'}" data-account="${account.name}">${account.name}</button>`;
+    return `<button class="chip ${active ? '' : 'off'}" data-account="${account.name}" aria-pressed="${active}" title="${account.name}">${account.name}</button>`;
   }).join('');
   container.querySelectorAll('button').forEach((button) => {
     button.addEventListener('click', () => {
@@ -1256,8 +1259,14 @@ document.querySelectorAll('#quick-buttons button').forEach((button) => {
   button.addEventListener('click', () => setSegmentValue('quick', 'quick-buttons', button.dataset.value));
 });
 
-$('clear-filters').addEventListener('click', () => {
+$('select-all').addEventListener('click', () => {
   state.selectedAccounts = new Set(state.accounts.map((account) => account.name));
+  renderChips();
+  loadDashboard();
+});
+
+$('clear-selection').addEventListener('click', () => {
+  state.selectedAccounts = new Set();
   renderChips();
   loadDashboard();
 });

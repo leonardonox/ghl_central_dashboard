@@ -161,6 +161,13 @@ button:hover { filter: brightness(0.96); }
   border-bottom: 1px solid #edf2f7;
 }
 
+.filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .filter-header strong,
 .magazine-title strong {
   display: block;
@@ -183,6 +190,16 @@ button:hover { filter: brightness(0.96); }
   border: 1px solid #b9d3ea;
   color: var(--blue-dark);
   background: #eef7ff;
+}
+
+.secondary.subtle {
+  color: #455468;
+  background: #ffffff;
+}
+
+.secondary:disabled {
+  cursor: not-allowed;
+  opacity: .52;
 }
 
 .filter-grid {
@@ -305,6 +322,18 @@ button:hover { filter: brightness(0.96); }
   gap: 12px;
 }
 
+#selected-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border: 1px solid #d8e9e3;
+  border-radius: 999px;
+  color: #075e4a;
+  background: #effaf6;
+  font-weight: 900;
+}
+
 .visually-hidden {
   position: absolute !important;
   width: 1px !important;
@@ -321,15 +350,25 @@ button:hover { filter: brightness(0.96); }
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  max-height: 168px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid #dbe8e4;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fbfefd 0%, #f4faf7 100%);
 }
 
 .chip {
   min-height: 30px;
+  max-width: 320px;
   border-radius: 999px;
   padding: 6px 12px;
   color: white;
   background: var(--green);
   box-shadow: 0 1px 5px rgba(47, 107, 34, .18);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chip.off {
@@ -912,6 +951,12 @@ th {
   .magazine-title {
     align-items: stretch;
     flex-direction: column;
+  }
+  .filter-actions {
+    justify-content: stretch;
+  }
+  .filter-actions button {
+    flex: 1 1 180px;
   }
   .months-row {
     grid-template-columns: 1fr;
