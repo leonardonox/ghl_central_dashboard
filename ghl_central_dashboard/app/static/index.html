@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dashboard Revistas</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260709-selected-sync" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260710-incremental-sync" />
   </head>
   <body>
     <main id="app-view" class="app-shell">
@@ -23,8 +23,8 @@
         <div class="top-actions">
           <span id="last-sync" class="sync-label">Atualizando...</span>
           <button id="pdf-btn" class="ghost">Gerar PDF</button>
-          <button id="sync-btn" class="ghost">Atualizar 7 dias</button>
-          <button id="sync-full-btn" class="ghost">Atualizar 90 dias</button>
+          <button id="sync-btn" class="ghost">Atualizar hoje + 2 dias</button>
+          <button id="sync-full-btn" class="ghost">Histórico inicial</button>
         </div>
       </header>
 
@@ -56,16 +56,16 @@
           <div class="filter-card" id="quick-card">
             <div class="filter-card-title">Período rápido</div>
             <div class="quick-buttons" id="quick-buttons">
-              <button type="button" data-value="Hoje">Hoje</button>
-              <button type="button" data-value="Semana" class="active">Semana</button>
+              <button type="button" data-value="Hoje" class="active">Hoje</button>
+              <button type="button" data-value="Semana">Semana</button>
               <button type="button" data-value="Mes">Mês atual</button>
               <button type="button" data-value="Mes especifico">Mês específico</button>
               <button type="button" data-value="Personalizado">Personalizado</button>
             </div>
             <select id="quick" class="visually-hidden">
+              <option>Hoje</option>
               <option>Semana</option>
               <option>Mes</option>
-              <option>Hoje</option>
               <option>Mes especifico</option>
               <option>Personalizado</option>
             </select>
@@ -141,6 +141,6 @@
       <section id="configuracoes" class="tab-panel hidden"></section>
     </main>
 
-    <script src="/static/app.js?v=20260709-selected-sync"></script>
+    <script src="/static/app.js?v=20260710-incremental-sync"></script>
   </body>
 </html>

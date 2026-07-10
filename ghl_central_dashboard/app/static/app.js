@@ -1277,14 +1277,14 @@ $('clear-selection').addEventListener('click', () => {
   loadDashboard();
 });
 
-async function runSync(daysBack, label) {
+async function runSync(daysBack, label, mode = 'incremental') {
   try {
     const accountIds = selectedAccountIds();
     if (!accountIds.length) {
       showStatus('Selecione pelo menos uma revista para sincronizar.');
       return;
     }
-    const params = new URLSearchParams({ days_back: String(daysBack) });
+    const params = new URLSearchParams({ days_back: String(daysBack), mode });
     accountIds.forEach((id) => params.append('account_ids', String(id)));
     const selectedLabel = accountIds.length === state.accounts.length
       ? 'todas as revistas'
@@ -1331,6 +1331,7 @@ function startSyncPolling(label) {
     }
     showStatus(
       `Sincronizado: ${result.accounts} revistas, `
+      + `${result.accounts_skipped || 0} ja tinham historico, `
       + `${result.leads_inserted_or_updated} leads, `
       + `${result.opportunities_inserted_or_updated} oportunidades, `
       + `${result.conversations_inserted_or_updated} conversas, `
@@ -1343,8 +1344,8 @@ function startSyncPolling(label) {
   }, 15000);
 }
 
-$('sync-btn').addEventListener('click', () => runSync(7, 'ultimos 7 dias'));
-$('sync-full-btn').addEventListener('click', () => runSync(90, 'ultimos 90 dias'));
+$('sync-btn').addEventListener('click', () => runSync(2, 'hoje e 2 dias anteriores'));
+$('sync-full-btn').addEventListener('click', () => runSync(3650, 'historico inicial', 'historical_once'));
 
 $('pdf-btn').addEventListener('click', () => {
   window.print();

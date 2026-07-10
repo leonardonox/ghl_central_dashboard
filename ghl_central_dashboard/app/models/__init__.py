@@ -3,5 +3,6 @@ from app.models.lead import Lead
 from app.models.opportunity import Opportunity
 from app.models.daily_snapshot import DailySnapshot
 from app.models.conversation import Conversation
+from app.models.sync_history import SyncHistory
 
-__all__ = ['GHLAccount', 'Lead', 'Opportunity', 'DailySnapshot', 'Conversation']
+__all__ = ['GHLAccount', 'Lead', 'Opportunity', 'DailySnapshot', 'Conversation', 'SyncHistory']

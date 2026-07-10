@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
@@ -12,10 +13,14 @@ from app.integrations.ghl.client import GHLClient
 from app.models.conversation import Conversation
 from app.models.lead import Lead
 from app.models.opportunity import Opportunity
+from app.models.sync_history import SyncHistory
 from app.repositories.account_repository import AccountRepository
 from app.services.metrics_service import MetricsService
 
 logger = logging.getLogger(__name__)
+INCREMENTAL_SYNC_DAYS = 2
+HISTORY_SYNC_DAYS = 3650
+SNAPSHOT_SYNC_DAYS = 90
 
 
 class GHLSyncService:
@@ -23,16 +28,24 @@ class GHLSyncService:
         self.db = db
         self.accounts = AccountRepository(db)
 
-    async def sync_all(self, days_back: int = 7, account_ids: list[int] | None = None) -> dict:
+    async def sync_all(
+        self,
+        days_back: int = INCREMENTAL_SYNC_DAYS,
+        account_ids: list[int] | None = None,
+        history_once: bool = False,
+    ) -> dict:
         result = {
             'accounts': 0,
+            'accounts_skipped': 0,
             'leads_inserted_or_updated': 0,
             'opportunities_inserted_or_updated': 0,
             'conversations_inserted_or_updated': 0,
             'snapshots_created_or_updated': 0,
             'account_results': [],
             'errors': [],
+            'history_once': history_once,
         }
+        days_back = HISTORY_SYNC_DAYS if history_once else days_back
         start_date = datetime.utcnow() - timedelta(days=days_back)
         allowed_account_ids = set(account_ids or [])
         accounts = self.accounts.list_active()
@@ -49,6 +62,13 @@ class GHLSyncService:
                 'status': 'ok',
             }
             try:
+                if history_once and self._historical_sync_completed(account.id):
+                    account_result['status'] = 'skipped'
+                    account_result['skipped_reason'] = 'Historico ja carregado'
+                    result['accounts_skipped'] += 1
+                    result['account_results'].append(account_result)
+                    continue
+
                 token = decrypt_token(account.api_token_encrypted)
                 client = GHLClient(token)
 
@@ -64,6 +84,8 @@ class GHLSyncService:
                 conversations = await self._fetch_conversations(client, account.location_id, start_date)
                 account_result['conversations'] = self._upsert_conversations(account.id, conversations)
                 result['conversations_inserted_or_updated'] += account_result['conversations']
+                if history_once:
+                    self._mark_historical_sync_completed(account.id, days_back)
                 result['accounts'] += 1
             except Exception as exc:
                 self.db.rollback()
@@ -76,13 +98,45 @@ class GHLSyncService:
         if not result['account_results']:
             result['errors'].append({'account': None, 'error': 'Nenhuma revista ativa selecionada.'})
         elif result['accounts']:
-            snapshots = MetricsService(self.db).build_daily_snapshots(
+            snapshot_start_date = max(
                 start_date.date(),
+                (datetime.utcnow() - timedelta(days=SNAPSHOT_SYNC_DAYS)).date(),
+            )
+            snapshots = MetricsService(self.db).build_daily_snapshots(
+                snapshot_start_date,
                 datetime.utcnow().date(),
                 [item['account_id'] for item in result['account_results'] if item['status'] == 'ok'],
             )
             result['snapshots_created_or_updated'] = snapshots['snapshots_created_or_updated']
         return result
+
+    def _historical_sync_completed(self, account_id: int) -> bool:
+        return bool(self.db.scalar(
+            select(SyncHistory.id).where(
+                SyncHistory.account_id == account_id,
+                SyncHistory.sync_type == 'historical',
+                SyncHistory.completed_at.is_not(None),
+            )
+        ))
+
+    def _mark_historical_sync_completed(self, account_id: int, days_back: int) -> None:
+        existing = self.db.scalar(
+            select(SyncHistory).where(
+                SyncHistory.account_id == account_id,
+                SyncHistory.sync_type == 'historical',
+            )
+        )
+        if existing:
+            existing.days_back = days_back
+            existing.completed_at = datetime.utcnow()
+        else:
+            self.db.add(SyncHistory(
+                account_id=account_id,
+                sync_type='historical',
+                days_back=days_back,
+                completed_at=datetime.utcnow(),
+            ))
+        self.db.commit()
 
     def _advance_pagination(self, params: dict, meta: dict, seen_cursors: set[tuple[str, str]]) -> bool:
         start_after = meta.get('startAfter')
@@ -219,14 +273,8 @@ class GHLSyncService:
         seen_ids: set[str] = set()
         seen_cursors: set[tuple[str, str]] = set()
         seen_date_cursors: set[str] = set()
-        page_count = 0
 
         while True:
-            page_count += 1
-            if page_count > 500:
-                logger.warning('Limite de paginas atingido ao buscar conversas da location %s', location_id)
-                break
-
             data = await client.get('/conversations/search', params=params)
             page_conversations = data.get('conversations', [])
             if not page_conversations:

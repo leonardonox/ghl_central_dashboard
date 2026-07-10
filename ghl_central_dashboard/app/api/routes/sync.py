@@ -16,6 +16,8 @@ from app.services.sync_service import GHLSyncService
 
 router = APIRouter(prefix='/sync', tags=['sync'])
 MAX_SYNC_DAYS = 90
+INCREMENTAL_SYNC_DAYS = 2
+HISTORY_SYNC_DAYS = 3650
 
 sync_state = {
     'running': False,
@@ -23,25 +25,37 @@ sync_state = {
     'finished_at': None,
     'days_back': None,
     'account_ids': None,
+    'mode': None,
     'result': None,
     'error': None,
 }
 
 
-async def _run_background_sync(days_back: int, account_ids: list[int] | None = None) -> None:
-    days_back = max(1, min(days_back, MAX_SYNC_DAYS))
+def _effective_days_back(days_back: int, mode: str) -> int:
+    if mode == 'historical_once':
+        return HISTORY_SYNC_DAYS
+    return max(0, min(days_back, MAX_SYNC_DAYS))
+
+
+async def _run_background_sync(days_back: int, account_ids: list[int] | None = None, mode: str = 'incremental') -> None:
+    days_back = _effective_days_back(days_back, mode)
     sync_state.update({
         'running': True,
         'started_at': datetime.utcnow().isoformat(),
         'finished_at': None,
         'days_back': days_back,
         'account_ids': account_ids,
+        'mode': mode,
         'result': None,
         'error': None,
     })
     db = SessionLocal()
     try:
-        sync_state['result'] = await GHLSyncService(db).sync_all(days_back=days_back, account_ids=account_ids)
+        sync_state['result'] = await GHLSyncService(db).sync_all(
+            days_back=days_back,
+            account_ids=account_ids,
+            history_once=mode == 'historical_once',
+        )
     except Exception as exc:
         sync_state['error'] = str(exc)
     finally:
@@ -52,21 +66,30 @@ async def _run_background_sync(days_back: int, account_ids: list[int] | None = N
 
 @router.post('/run')
 async def run_sync(
-    days_back: int = 7,
+    days_back: int = INCREMENTAL_SYNC_DAYS,
+    mode: str = 'incremental',
     account_ids: list[int] | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    days_back = max(1, min(days_back, MAX_SYNC_DAYS))
-    return await GHLSyncService(db).sync_all(days_back=days_back, account_ids=account_ids)
+    days_back = _effective_days_back(days_back, mode)
+    return await GHLSyncService(db).sync_all(
+        days_back=days_back,
+        account_ids=account_ids,
+        history_once=mode == 'historical_once',
+    )
 
 
 @router.post('/start')
-async def start_sync(days_back: int = 7, account_ids: list[int] | None = Query(default=None)):
-    days_back = max(1, min(days_back, MAX_SYNC_DAYS))
+async def start_sync(
+    days_back: int = INCREMENTAL_SYNC_DAYS,
+    mode: str = 'incremental',
+    account_ids: list[int] | None = Query(default=None),
+):
+    days_back = _effective_days_back(days_back, mode)
     if sync_state['running']:
         return {'status': 'running', **sync_state}
-    asyncio.create_task(_run_background_sync(days_back, account_ids))
-    return {'status': 'started', 'days_back': days_back, 'account_ids': account_ids}
+    asyncio.create_task(_run_background_sync(days_back, account_ids, mode))
+    return {'status': 'started', 'days_back': days_back, 'account_ids': account_ids, 'mode': mode}
 
 
 @router.get('/status')
