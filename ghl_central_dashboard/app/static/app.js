@@ -1291,8 +1291,8 @@ async function runSync(daysBack, label, mode = 'incremental') {
       : `${accountIds.length} revista${accountIds.length > 1 ? 's' : ''} selecionada${accountIds.length > 1 ? 's' : ''}`;
     const started = await api(`/sync/start?${params.toString()}`, { method: 'POST' });
     showStatus(started.status === 'running'
-      ? `Ja existe uma sincronizacao em andamento. Acompanhando ${label}...`
-      : `Sincronizacao de ${label} iniciada para ${selectedLabel}. Pode deixar a pagina aberta ou voltar depois.`);
+      ? `Ja existe uma sincronizacao em andamento. Acompanhando ${label}. Os cards continuam separados por data.`
+      : `Sincronizacao de ${label} iniciada para ${selectedLabel}. Os cards continuam separados por data; nao soma os dias.`);
     startSyncPolling(`${label} (${selectedLabel})`);
   } catch (error) {
     showStatus(`Erro ao iniciar sincronizacao GHL: ${error.message}`);
