@@ -47,6 +47,9 @@ class MetricsService:
     def _local_date(self, value: datetime) -> date:
         return value.replace(tzinfo=timezone.utc).astimezone(LOCAL_TIMEZONE).date()
 
+    def _today_local(self) -> date:
+        return datetime.now(LOCAL_TIMEZONE).date()
+
     def _previous_period(self, start_date: date, end_date: date) -> tuple[date, date]:
         days = (end_date - start_date).days + 1
         previous_end = start_date - timedelta(days=1)
@@ -623,6 +626,9 @@ class MetricsService:
         return rows
 
     def _snapshot_rows_for_period(self, start_date: date, end_date: date) -> list[dict] | None:
+        if end_date >= self._today_local():
+            return None
+
         accounts = list(self.db.scalars(
             select(GHLAccount).where(GHLAccount.active.is_(True)).order_by(GHLAccount.name)
         ))

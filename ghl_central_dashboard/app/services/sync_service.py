@@ -1,7 +1,8 @@
 import unicodedata
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 INCREMENTAL_SYNC_DAYS = 2
 HISTORY_SYNC_DAYS = 3650
 SNAPSHOT_SYNC_DAYS = 90
+LOCAL_TIMEZONE = ZoneInfo('America/Sao_Paulo')
 
 
 class GHLSyncService:
@@ -46,7 +48,7 @@ class GHLSyncService:
             'history_once': history_once,
         }
         days_back = HISTORY_SYNC_DAYS if history_once else days_back
-        start_date = datetime.utcnow() - timedelta(days=days_back)
+        start_date = self._sync_start_datetime(days_back)
         allowed_account_ids = set(account_ids or [])
         accounts = self.accounts.list_active()
         if allowed_account_ids:
@@ -137,6 +139,13 @@ class GHLSyncService:
                 completed_at=datetime.utcnow(),
             ))
         self.db.commit()
+
+    def _sync_start_datetime(self, days_back: int) -> datetime:
+        if days_back >= HISTORY_SYNC_DAYS:
+            return datetime.utcnow() - timedelta(days=days_back)
+        local_start_date = datetime.now(LOCAL_TIMEZONE).date() - timedelta(days=days_back)
+        local_start = datetime.combine(local_start_date, time.min, tzinfo=LOCAL_TIMEZONE)
+        return local_start.astimezone(timezone.utc).replace(tzinfo=None)
 
     def _advance_pagination(self, params: dict, meta: dict, seen_cursors: set[tuple[str, str]]) -> bool:
         start_after = meta.get('startAfter')
