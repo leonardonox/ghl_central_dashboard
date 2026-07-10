@@ -435,6 +435,7 @@ function renderSummary(currentRows, previousRows) {
       ${singleKpi('Canais identificados', pct(leads ? (channel / leads) * 100 : 0), `${channel} leads`, 'blue')}
     </div>
     <div class="kpi-note">
+      Atual mostra apenas ${labels.current}. Anterior mostra apenas ${labels.previous}. A sincronizacao recente atualiza o banco, mas nao soma datas nos cards.
       Total leads mede as conversas abertas na aba Todos. Atendimentos mede pessoas em que IA ou atendente respondeu.
     </div>
     <br>
