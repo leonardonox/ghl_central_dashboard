@@ -6,14 +6,13 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.routes.auth import require_auth
 from app.core.database import get_db
 from app.core.security import decrypt_token
 from app.integrations.ghl.client import GHLClient
 from app.models.ghl_account import GHLAccount
 from app.services.metrics_service import MetricsService
 
-router = APIRouter(prefix='/dashboard', tags=['dashboard'], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix='/dashboard', tags=['dashboard'])
 EDITORIAL_STAGE = 'suporte editorial'
 LOCAL_TIMEZONE = ZoneInfo('America/Sao_Paulo')
 

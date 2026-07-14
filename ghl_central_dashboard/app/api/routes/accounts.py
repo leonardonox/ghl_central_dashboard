@@ -5,7 +5,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.api.routes.auth import require_auth
 from app.models.conversation import Conversation
 from app.core.security import encrypt_token
 from app.models.ghl_account import GHLAccount
@@ -14,7 +13,7 @@ from app.models.opportunity import Opportunity
 from app.repositories.account_repository import AccountRepository
 from app.schemas.account import AccountCreate, AccountOut, AccountUpdate
 
-router = APIRouter(prefix='/accounts', tags=['accounts'], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix='/accounts', tags=['accounts'])
 
 
 def _clean_location_id(value: str) -> str:

@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal, get_db
 from app.core.security import decrypt_token
-from app.api.routes.auth import require_auth
 from app.integrations.ghl.client import GHLClient
 from app.models.conversation import Conversation
 from app.models.lead import Lead
@@ -15,7 +14,7 @@ from app.models.opportunity import Opportunity
 from app.repositories.account_repository import AccountRepository
 from app.services.sync_service import GHLSyncService
 
-router = APIRouter(prefix='/sync', tags=['sync'], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix='/sync', tags=['sync'])
 MAX_SYNC_DAYS = 90
 INCREMENTAL_SYNC_DAYS = 2
 HISTORY_SYNC_DAYS = 3650
