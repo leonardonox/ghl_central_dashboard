@@ -130,8 +130,13 @@ function previousRange(start, end) {
 async function api(path, options = {}) {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     ...options,
   });
+  if (response.status === 401) {
+    showLogin('Faça login para acessar o painel.');
+    throw new Error('Login necessario');
+  }
   if (!response.ok) throw new Error(await response.text());
   return response.json();
 }
@@ -154,6 +159,18 @@ function showStatus(message) {
 
 function hideStatus() {
   $('status').classList.add('hidden');
+}
+
+function showLogin(message = '') {
+  $('app-view').classList.add('hidden');
+  $('login-view').classList.remove('hidden');
+  $('login-error').textContent = message;
+}
+
+function showApp() {
+  $('login-view').classList.add('hidden');
+  $('app-view').classList.remove('hidden');
+  $('login-error').textContent = '';
 }
 
 function fillMonthSelects() {
@@ -1250,13 +1267,36 @@ function selectedAccountIds() {
 }
 
 async function initApp() {
-  fillMonthSelects();
-  state.accounts = await api('/accounts');
-  state.selectedAccounts = new Set(state.accounts.map((account) => account.name));
-  renderChips();
-  await renderConfig();
-  await loadDashboard();
+  try {
+    await api('/auth/me');
+    showApp();
+    fillMonthSelects();
+    state.accounts = await api('/accounts');
+    state.selectedAccounts = new Set(state.accounts.map((account) => account.name));
+    renderChips();
+    await renderConfig();
+    await loadDashboard();
+  } catch (error) {
+    showLogin(error.message === 'Login necessario' ? '' : error.message);
+  }
 }
+
+$('login-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  try {
+    $('login-error').textContent = '';
+    await api('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        username: $('login-username').value,
+        password: $('login-password').value,
+      }),
+    });
+    await initApp();
+  } catch (error) {
+    showLogin('Usuário ou senha inválidos.');
+  }
+});
 
 document.querySelectorAll('#mode-segment button').forEach((button) => {
   button.addEventListener('click', () => setSegmentValue('mode', 'mode-segment', button.dataset.value));
@@ -1347,6 +1387,10 @@ function startSyncPolling(label) {
 
 $('sync-btn').addEventListener('click', () => runSync(2, 'hoje e 2 dias anteriores'));
 $('sync-full-btn').addEventListener('click', () => runSync(3650, 'historico inicial', 'historical_once'));
+$('sync-refresh-history-btn').addEventListener('click', () => {
+  if (!window.confirm('Refazer o historico das revistas selecionadas? Isso pode demorar.')) return;
+  runSync(3650, 'refazer historico', 'historical_refresh');
+});
 
 $('pdf-btn').addEventListener('click', () => {
   window.print();

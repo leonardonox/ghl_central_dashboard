@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal, get_db
 from app.core.security import decrypt_token
+from app.api.routes.auth import require_auth
 from app.integrations.ghl.client import GHLClient
 from app.models.conversation import Conversation
 from app.models.lead import Lead
@@ -14,7 +15,7 @@ from app.models.opportunity import Opportunity
 from app.repositories.account_repository import AccountRepository
 from app.services.sync_service import GHLSyncService
 
-router = APIRouter(prefix='/sync', tags=['sync'])
+router = APIRouter(prefix='/sync', tags=['sync'], dependencies=[Depends(require_auth)])
 MAX_SYNC_DAYS = 90
 INCREMENTAL_SYNC_DAYS = 2
 HISTORY_SYNC_DAYS = 3650
@@ -32,7 +33,7 @@ sync_state = {
 
 
 def _effective_days_back(days_back: int, mode: str) -> int:
-    if mode == 'historical_once':
+    if mode in {'historical_once', 'historical_refresh'}:
         return HISTORY_SYNC_DAYS
     return max(0, min(days_back, MAX_SYNC_DAYS))
 
@@ -54,7 +55,8 @@ async def _run_background_sync(days_back: int, account_ids: list[int] | None = N
         sync_state['result'] = await GHLSyncService(db).sync_all(
             days_back=days_back,
             account_ids=account_ids,
-            history_once=mode == 'historical_once',
+            history_once=mode in {'historical_once', 'historical_refresh'},
+            force_history=mode == 'historical_refresh',
         )
     except Exception as exc:
         sync_state['error'] = str(exc)
@@ -75,7 +77,8 @@ async def run_sync(
     return await GHLSyncService(db).sync_all(
         days_back=days_back,
         account_ids=account_ids,
-        history_once=mode == 'historical_once',
+        history_once=mode in {'historical_once', 'historical_refresh'},
+        force_history=mode == 'historical_refresh',
     )
 
 

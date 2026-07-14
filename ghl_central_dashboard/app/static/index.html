@@ -4,10 +4,27 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dashboard Revistas</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260710-date-separate" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260714-auth-history" />
   </head>
   <body>
-    <main id="app-view" class="app-shell">
+    <section id="login-view" class="login-shell">
+      <form id="login-form" class="login-card">
+        <h1>Entrar no dashboard</h1>
+        <p>Acesse o painel comparativo das revistas.</p>
+        <label>
+          Usuário
+          <input id="login-username" autocomplete="username" />
+        </label>
+        <label>
+          Senha
+          <input id="login-password" type="password" autocomplete="current-password" />
+        </label>
+        <button type="submit">Entrar</button>
+        <span id="login-error"></span>
+      </form>
+    </section>
+
+    <main id="app-view" class="app-shell hidden">
       <header class="topbar">
         <div class="brand-block" aria-label="Future Publishers Group">
           <span class="brand-mark" aria-hidden="true"></span>
@@ -25,6 +42,7 @@
           <button id="pdf-btn" class="ghost">Gerar PDF</button>
           <button id="sync-btn" class="ghost">Sincronizar recentes</button>
           <button id="sync-full-btn" class="ghost">Histórico inicial</button>
+          <button id="sync-refresh-history-btn" class="ghost">Refazer histórico</button>
         </div>
       </header>
 
@@ -141,6 +159,6 @@
       <section id="configuracoes" class="tab-panel hidden"></section>
     </main>
 
-    <script src="/static/app.js?v=20260710-date-separate"></script>
+    <script src="/static/app.js?v=20260714-auth-history"></script>
   </body>
 </html>

@@ -35,6 +35,7 @@ class GHLSyncService:
         days_back: int = INCREMENTAL_SYNC_DAYS,
         account_ids: list[int] | None = None,
         history_once: bool = False,
+        force_history: bool = False,
     ) -> dict:
         result = {
             'accounts': 0,
@@ -46,6 +47,7 @@ class GHLSyncService:
             'account_results': [],
             'errors': [],
             'history_once': history_once,
+            'force_history': force_history,
         }
         days_back = HISTORY_SYNC_DAYS if history_once else days_back
         start_date = self._sync_start_datetime(days_back)
@@ -64,7 +66,7 @@ class GHLSyncService:
                 'status': 'ok',
             }
             try:
-                if history_once and self._historical_sync_completed(account.id):
+                if history_once and not force_history and self._historical_sync_completed(account.id):
                     account_result['status'] = 'skipped'
                     account_result['skipped_reason'] = 'Historico ja carregado'
                     result['accounts_skipped'] += 1
@@ -318,14 +320,18 @@ class GHLSyncService:
                 continue
 
             cursor = page_conversations[-1].get('lastMessageDate')
+            cursor_id = page_conversations[-1].get('id')
             if not cursor:
                 break
             cursor = str(cursor)
-            if cursor in seen_date_cursors:
+            cursor_key = f'{cursor}:{cursor_id or ""}'
+            if cursor_key in seen_date_cursors:
                 break
-            seen_date_cursors.add(cursor)
+            seen_date_cursors.add(cursor_key)
 
             params['startAfterDate'] = cursor
+            if cursor_id:
+                params['startAfterId'] = cursor_id
 
         return conversations
 

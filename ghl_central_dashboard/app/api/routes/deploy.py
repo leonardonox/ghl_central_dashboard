@@ -1,9 +1,10 @@
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.api.routes.auth import require_auth
 from app.core.config import get_settings
 
-router = APIRouter(prefix='/deploy', tags=['deploy'])
+router = APIRouter(prefix='/deploy', tags=['deploy'], dependencies=[Depends(require_auth)])
 
 
 @router.post('/render')

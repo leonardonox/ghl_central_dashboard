@@ -1,18 +1,21 @@
 import asyncio
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import json
 import unicodedata
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.api.routes.auth import require_auth
 from app.core.database import get_db
 from app.core.security import decrypt_token
 from app.integrations.ghl.client import GHLClient
 from app.models.ghl_account import GHLAccount
 from app.services.metrics_service import MetricsService
 
-router = APIRouter(prefix='/dashboard', tags=['dashboard'])
+router = APIRouter(prefix='/dashboard', tags=['dashboard'], dependencies=[Depends(require_auth)])
 EDITORIAL_STAGE = 'suporte editorial'
+LOCAL_TIMEZONE = ZoneInfo('America/Sao_Paulo')
 
 
 def _clean_text(value: object) -> str:
@@ -200,7 +203,7 @@ def compare_dates(
 
 @router.get('/summary')
 def summary(db: Session = Depends(get_db)):
-    today = date.today()
+    today = datetime.now(LOCAL_TIMEZONE).date()
     yesterday = today - timedelta(days=1)
     metrics = MetricsService(db)
     return {
