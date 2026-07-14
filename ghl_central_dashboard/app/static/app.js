@@ -1345,11 +1345,10 @@ function startSyncPolling(label) {
   }, 15000);
 }
 
-$('sync-btn').addEventListener('click', () => runSync(2, 'hoje e 2 dias anteriores'));
-$('sync-full-btn').addEventListener('click', () => runSync(3650, 'historico inicial', 'historical_once'));
-$('sync-refresh-history-btn').addEventListener('click', () => {
-  if (!window.confirm('Refazer o historico das revistas selecionadas? Isso pode demorar.')) return;
-  runSync(3650, 'refazer historico', 'historical_refresh');
+$('sync-btn').addEventListener('click', () => runSync(3, 'ultimos 3 dias'));
+$('sync-history-btn').addEventListener('click', () => {
+  if (!window.confirm('Atualizar o historico completo das revistas selecionadas? Isso pode demorar.')) return;
+  runSync(3650, 'historico completo', 'historical_refresh');
 });
 
 $('pdf-btn').addEventListener('click', () => {
